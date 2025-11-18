@@ -12,7 +12,7 @@ class MeetingAgent(BaseAgent):
             ),
         )
 
-    def handle(self, session_id:str , user_id: str, model: str, message: str) -> str:
+    def handle(self, session_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
         """회의실 업무 처리 """
 
         # 1. seesion_id가 없는 경우 대화 세션 생성
@@ -61,12 +61,12 @@ class MeetingAgent(BaseAgent):
         if "###예약:" in llm_reply:
             room_name = llm_reply.split("###예약:")[-1].strip().split()[0]
             result = reserve_meeting_room(room_name)
-            return llm_reply + "\n\n" + result["message"]
+            llm_reply = llm_reply + "\n\n" + result["message"]
         
         # 회의실 취소 여부 감지
         if "###취소:" in llm_reply:
             room_name = llm_reply.split("###취소:")[-1].strip().split()[0]
             result = cancel_meeting_room(room_name)
-            return llm_reply + "\n\n" + result["message"]
+            llm_reply = llm_reply + "\n\n" + result["message"]
         
         return llm_reply, session_id
