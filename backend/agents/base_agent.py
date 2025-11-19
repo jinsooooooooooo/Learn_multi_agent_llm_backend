@@ -22,9 +22,9 @@ class BaseAgent(ABC):
         pass
 
         
-    def _llm_reply(self, model:str , message: str, chat_history: list[dict] = None ) -> str:
+    def _llm_reply(self, model:str , message: str, chat_history: list[dict] = None , prompt: str = None) -> str:
         """
-        LLM 호출 공통 함수
+        LLM 호출 공통 공통 래퍼(wrapper) 함수.
         Arguments:
             - model(str): 모델
             - message(str): 사용자의 신규 메세지
@@ -33,7 +33,14 @@ class BaseAgent(ABC):
             - str: 신규 메세지에 대한 llm 답변
         """
         # full_prompt = f"{self.role_prompt}\n\n사용자 요청:\n{content}"
-        return call_llm( model, self.role_prompt, message , None, chat_history)
+        final_prompt = prompt or self.role_prompt
+        return call_llm(
+            model=model,
+            prompt=final_prompt,
+            message=message,
+            chat_history=chat_history
+            # temperature는 llm_core의 기본값을 사용하므로 명시하지 않아도 됩니다.
+        )
     
 
 

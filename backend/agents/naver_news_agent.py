@@ -15,7 +15,7 @@ class NaverNewsAgent(BaseAgent):
             ),
         )
 
-    def handle(self, payload) -> tuple[list[dict], str] :
+    def handle(self, payload) -> tuple[list[dict], str, str] :
         """
         네이버 API를 통해 검색 결과 회신
 
@@ -43,8 +43,7 @@ class NaverNewsAgent(BaseAgent):
         message = payload.message
 
         # 1. session_id 생성
-        
-        if session_id is None or session_id.strim()=="":
+        if session_id is None or session_id.strip() =="":
             session_id = uuid.uuid4()
 
         # 2. load seesion history
@@ -53,34 +52,28 @@ class NaverNewsAgent(BaseAgent):
         # 3. 시스템 프롬프트 조합
 
         # 3.1 먼저 입력된 keywords를 순회하여 Naver 뉴스를 조회
-        # fetch_news = search_naver_news(user_keywords,3) if user_keywords else "입력한 키워드가 없습니다."
         total_articles = []
+        final_prompt = self.role_prompt
+
         if keywords:
             for idx, keyword in enumerate(keywords, start=1):
                 # print(f'키워드{idx}: {keyword}')
-                self.role_prompt=f"{self.role_prompt}\n\n\n키워드{idx}: {keyword}"
+                final_prompt += f"\n\n\n# 검색 키워드 {idx}: {keyword}"
                 fetch_articles = search_naver_news(keyword,3)
                 if fetch_articles:
                     # total_articles에 단일 리스트로 합치기
                     total_articles.extend(fetch_articles)
-
-                    # role_prompt 업데이트
+                    final_prompt += "\n## 관련 뉴스 목록:"
+                    # prompt 업데이트
                     for i_dx, article in enumerate(fetch_articles, start=1):
-                        # print(
-                        #     f"  - 제목: {article['title']}\n"
-                        #     f"  - 링크: {article['link']}\n"
-                        #     f"  - 날짜: {article['pubDate']}\n"
-                        #     f"  - 설명: {article['description']}\n"
-                        # )
-                        self.role_prompt=f"{self.role_prompt}\n  - 제목{i_dx}: {article['title']}"
-                        self.role_prompt=f"{self.role_prompt}\n  - 링크{i_dx}: {article['link']}"
+                        final_prompt += f"\n  - 제목{i_dx}: {article['title']}"
+                        final_prompt += f"\n  - 링크{i_dx}: {article['link']}"
 
 
              
 
         # 3.2 키워드 검색 결과가 포함된 프롬프트로 llm query 질의 
-        print(f'{self.role_prompt}')   
-        llm_reply = self._llm_reply(model, message, chat_history)
+        llm_reply = self._llm_reply(model, message, chat_history, final_prompt)
         
         
         return total_articles, llm_reply, session_id
