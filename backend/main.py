@@ -10,7 +10,7 @@ from backend.routes.news_routes import router as news_router
 from backend.routes.langchain_chat_routes import router as langchain_router
 from backend.routes.langchain_chatstream_routes import router as langchain_stream_router
 from backend.routes.stream_sample_routes import router as stream_sample_router
-
+from backend.db_manager import engine
 
 
 # @app.on_event("startup") #on_event(startup / shutdown) 더이상 지원하지 않아 lifespan 으로 변경
@@ -25,12 +25,25 @@ async def lifespan(app: FastAPI):
         methods = ', '.join(route.methods or [])
         print(f"  {route.path:30s} → [{methods}]")
 
+    print("--- Lifespan: Connecting to database... ---")
+    # 앱이 시작될 때, DB 엔진이 첫 연결을 시도하고 커넥션 풀을 준비합니다.
+    # 간단한 연결 테스트를 위해 ping을 보낼 수 있습니다.
+    try:
+        conn = engine.connect()
+        conn.close()
+        print("--- Lifespan: Database connection successful. ---")
+    except Exception as e:
+        print(f"--- Lifespan: Database connection failed: {e} ---")
+
 
     yield
 
     # --- yield 이후 : 애플리케이션 종료 시 실행될 코드 ---
     # (예: 데이터베이스 연결 해제, 리소스 정리 등)
     print("--- Lifespan: Server is shutting down! ---")
+    # 앱이 종료될 때, SQLAlchemy 엔진의 커넥션 풀을 정리합니다.
+    engine.dispose()
+    print("--- Lifespan: Database connection pool disposed. ---")
 
 
 app = FastAPI(title="RAG Multi-Agent Backend",lifespan=lifespan)
