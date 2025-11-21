@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 import uuid
@@ -29,9 +30,10 @@ def create_chat_session(db: Session, user_id: str, agent_id: str, model_id: str)
     # 2. 이 객체를 세션에 '추가(add)'합니다. 아직 DB에 저장된 것은 아닙니다.
     db.add(new_session)
     # 3. 세션의 변경사항을 DB에 '커밋(commit)'하여 최종 저장합니다.
-    db.commit()
+    # db.commit()
     # 4. DB에 저장되면서 할당된 session_id 등을 포함한 객체를 '새로고침(refresh)'하여 반환합니다.
-    db.refresh(new_session)
+    # db.refresh(new_session)
+    db.flush()
     return new_session
 
 
@@ -52,10 +54,10 @@ def get_chat_history(db: Session, session_id: uuid.UUID) -> list[SessionMessage]
     """
     주어진 session_id에 속한 모든 메시지를 시간 순서대로 조회합니다.
     - Args:
-        db:
-        session_id:
+        - db: db 연결정보
+        - session_id: 조회하고자 하는 seesion_id
     - Returns:
-        lst[SessionMessage]
+        - lst[SessionMessage]: SeesionMassge(OrmBase) 객채의 리스트 반환
     """
     return db.query(SessionMessage)\
              .filter(SessionMessage.session_id == session_id)\
@@ -65,16 +67,16 @@ def get_chat_history(db: Session, session_id: uuid.UUID) -> list[SessionMessage]
 
 # -----------------------------------------------
 # ------- message 히스토리 저장하기 ---------- 
-def save_message(db: Session, session_id: uuid.UUID, role: str, content: str ) -> SessionMessage:
+def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, sequence: int ) -> SessionMessage:
     """
     새로운 채팅 메시지를 생성하고 DB에 저장합니다.
     - Args:
-        db:
-        seesion_id:
-        role:
-        content:
+        - db:
+        - seesion_id:
+        - role:
+        - content:
     - Returns:
-        SessionMessage: 저장된 메세지 반환
+        - SessionMessage: 저장된 메세지 반환
     """
     # 메세지 이력을 저장 할 때는 같은 seesion 안에서 seq를 순차적으로 증가시켜야 하므로 단순한 add() 만으로는 구현 불가
 
@@ -101,21 +103,27 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str ) -
     # return result_cursor
 
     # 방법2. 현재 세션의 최대 'sequence' 값을 조회합니다.
-    #    -> SQL: SELECT max(sequence) FROM llm_agent.session_message WHERE session_id = :session_id
-    last_sequence = db.query(func.max(SessionMessage.sequence))\
-                      .filter(SessionMessage.session_id == session_id)\
-                      .scalar()
-    #    조회된 최대값이 없으면(첫 메시지) 1로, 있으면 +1을 합니다.
-    next_sequence = last_sequence + 1 if last_sequence else 1
-    #    계산된 'next_sequence'를 사용하여 새 메시지 객체를 만듭니다.
+
     new_message = SessionMessage(
         session_id=session_id,
         role=role,
         content=content,
-        sequence=next_sequence
+        sequence=sequence
     )
     db.add(new_message)
-    db.commit()
-    db.refresh(new_message)
+    #db.commit()
+    #db.refresh(new_message)
+    db.flush
+
+    return new_message
 
 
+
+
+# SQL: SELECT coalesce( max(sequence),0) FROM llm_agent.session_message WHERE session_id = :session_id
+def get_last_sequence(db: Session, session_id: uuid.UUID) -> int :
+    """주어진 세션의 마지막 시퀀스 번호를 조회합니다."""
+    # 이 함수는 오직 '조회' 책임만 가집니다.
+    return db.query(func.coalesce(func.max(SessionMessage.sequence),0))\
+             .filter(SessionMessage.session_id == session_id)\
+             .scalar()
