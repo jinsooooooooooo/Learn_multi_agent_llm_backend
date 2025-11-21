@@ -2,7 +2,6 @@
 from sqlalchemy import func
 from backend.agents.base_agent import BaseAgent
 from sqlalchemy.orm import Session
-import uuid
 
 from backend.database.crud import chat_crud
 
@@ -16,51 +15,74 @@ class ChatAgent(BaseAgent):
             ),
         )
 
-    def handle(self, db: Session, session_id:str , user_id: str, model:str , message: str) -> tuple[str, str] :
-        """일반 대화 처리"""
-        
-        chat_history = [] 
+    def handle(self, db: Session, session_id: str, user_id: str, model: str, message: str) -> tuple[str, str]:
+        """
+        사용자 메시지를 처리하고, DB와 연동하여 대화 이력을 관리합니다.
+        모든 DB 작업은 단일 트랜잭션으로 처리됩니다.
+        """
+        try:
+            # --- 1. 세션 확인 및 생성 ---
+            current_session_id = session_id # 전달받은 session_id를 사용 또는 갱신할 변수
 
-        # 1. if seesion_id 가 없으면: = 첫 대화 이므로 세션 아이디 생성
-        #   databse에서 "chat_seesion" 테이블에 세션 데이터를 insert 하여 pk로 session_id(=uuid) 반환 받아 사용 한다. 
-        if session_id is None or session_id.strip() == "":
-            # print(f'[chat_agent.py] create new seesion_id!!! -> {session_id}')
-            # session_id = str(uuid.uuid4()) # (임시조치)
-            new_seesion = chat_crud.create_chat_session(
-                db=db,
-                user_id=user_id,
-                agent_id=self.name,
-                model_id=model
+            if current_session_id is None or current_session_id.strip() == "":
+                print("[Agent] New session needed. Creating one...")
+                new_session_obj = chat_crud.create_chat_session(
+                    db=db, 
+                    user_id=user_id, 
+                    agent_id=self.name, 
+                    model_id=model
+                )
+                current_session_id = new_session_obj.session_id # 새로 생성된 ID로 업데이트
+                # print(f"[Agent] New session created with ID: {current_session_id}")
+                chat_history_orm = [] # 새 세션이므로 이력은 비어있습니다.
+            else:
+                print(f"[Agent] Existing session. Fetching history for ID: {current_session_id}")
+                chat_history_orm = chat_crud.get_chat_history(db=db, session_id=current_session_id)
+                
+            # --- 2. LLM 호출을 위한 데이터 준비 ---
+            # DB에서 가져온 ORM 객체 리스트를, LLM이 이해할 수 있는 dict 리스트로 변환합니다.
+            chat_history_dict = [{"role": msg.role, "content": msg.content} for msg in chat_history_orm]
+
+            # --- 3. 사용자 메시지 저장 ---
+            # 다음 sequence 번호를 가져와서 사용자 메시지를 저장합니다.
+            next_sequence = chat_crud.get_last_sequence(db=db, session_id=current_session_id) + 1
+            chat_crud.save_message(
+                db=db, 
+                session_id=current_session_id, 
+                role="user", 
+                content=message,
+                sequence=next_sequence # sequence 파라미터 전달
             )
-            session_id = str(new_seesion.session_id)
-        # 2. else 전달받은 seesion_id 로 chat_history 이력을 가져온다. 
-        else: 
-            chat_history_orm = chat_crud.get_chat_history(db=db, session_id=session_id)
-            for msg in chat_history_orm:
-                chat_history.append( {"role": msg.role ,"content": msg.content} )
+            
+            # --- 4. LLM 호출 ---
+            print("[Agent] Calling LLM...")
+            llm_reply = self._llm_reply(
+                model=model, 
+                message=message, 
+                chat_history=chat_history_dict
+            )
+            print("[Agent] LLM reply received.")
 
+            # --- 5. LLM 응답 저장 ---
+            # 다음 sequence 번호를 가져와서 LLM 응답을 저장합니다.
+            next_sequence += 1
+            chat_crud.save_message(
+                db=db, 
+                session_id=current_session_id, 
+                role="assistant", 
+                content=llm_reply,
+                sequence=next_sequence # sequence 파라미터 전달
+            )
 
-        # 3. model + agent 조합으로 정해진 prompt 조합
-        # get_prompt(model, self.name) from databse
-        
-        
-        # 4. 사용자 메세지 히스토리 저장 
-        # 이 대화 세션에 마지막 sequence를 가져와서 저장한다 
-        last_sequence = chat_crud.get_last_sequence(db, session_id) or 0
-        last_sequence += 1
-        chat_crud.save_message(db,session_id,"user",message,last_sequence)
+            # --- 6. 최종 커밋 ---
+            # 이 요청에 대한 모든 DB 작업이 성공했으므로, 트랜잭션을 최종 확정합니다.
+            print("[Agent] Committing transaction to DB.")
+            db.commit()
 
-        # 5. llm 질의
-        llm_reply = self._llm_reply( model, message, chat_history)
+            return llm_reply, str(current_session_id) # UUID 객체이므로 str()로 변환
 
-        # 6. LLM 답변 메세지 히스토리 저장 
-        last_sequence += 1
-        chat_crud.save_message(db,session_id,"assistant",llm_reply,last_sequence)
-
-
-         # --- 6. 최종 커밋 ---
-        # 이 요청에 대한 모든 DB 작업(세션 생성, 메시지 저장 2건)이 성공했으므로,
-        # 트랜잭션을 최종적으로 DB에 확정(commit)합니다.
-        db.commit()
-        
-        return llm_reply, session_id
+        except Exception as e:
+            # --- 예외 발생 시 롤백 ---
+            print(f"[Agent] An error occurred during handle: {e}")
+            db.rollback() # 모든 DB 변경사항을 "없던 일로" 되돌립니다.
+            raise e
