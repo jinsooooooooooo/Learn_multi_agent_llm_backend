@@ -1,6 +1,6 @@
 from sqlalchemy import UUID, Column, String, Text, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
-from backend.db_manager import OrmBase
+from backend.database.db_manager import OrmBase
 
 
 # ===================================================================
@@ -20,7 +20,7 @@ class ChatSession(OrmBase):
     # session_id: uuid 타입의 기본 키(Primary Key)입니다.
     # DB에 이미 DEFAULT gen_random_uuid()가 설정되어 있으므로, 여기선 default 옵션을 주지 않습니다.
     # SQLAlchemy는 INSERT 시 이 컬럼을 생략하고, DB가 값을 채우도록 합니다.
-    session_id = Column(UUID(as_uuid=True), primary_key=True)
+    session_id = Column(UUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid")
 
      # user_id: varchar(50) 타입의 문자열이며, 비어있을 수 없습니다(nullable=False).
     user_id = Column(String(50), nullable=False)
@@ -51,17 +51,17 @@ class ChatSession(OrmBase):
 # SessionMessage 모델: llm_agent.session_message 테이블과 매핑됩니다.
 # ===================================================================
 class SessionMessage(OrmBase):
-    __tablename__ = 'seesion_message'
+    __tablename__ = 'session_message'
     __table_args__ = {'schema': 'llm_agent'}
     
-    message_id = Column(UUID(as_uuid=True), primary_key=True)
+    message_id = Column(UUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid()")
     # session_id: 이 메시지가 어떤 ChatSession에 속하는지를 가리키는 외래 키(Foreign Key)입니다.
     # ForeignKey('llm_agent.chat_session.session_id')는 DB 레벨에서 두 테이블 간의 관계를 강제합니다
     session_id =  Column(UUID(as_uuid=True), ForeignKey('llm_agent.chat_session.session_id'), nullable=False)
     sequence = Column(Integer, nullable=False)
     role = Column(String[10], nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default="now()")
 
      # --- 관계(Relationship) 정의 ---
     # 'SessionMessage' 객체는 하나의 'ChatSession' 객체에 속합니다.
