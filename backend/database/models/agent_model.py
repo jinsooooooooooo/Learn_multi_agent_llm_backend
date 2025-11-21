@@ -1,4 +1,4 @@
-from backend.db_manager import OrmBase
+from backend.database.db_manager import OrmBase
 from sqlalchemy import Column, ForeignKey, String, Text, Integer, Numeric, Boolean, UUID, JSON, and_
 from sqlalchemy.orm import relationship
 
