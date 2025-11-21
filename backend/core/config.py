@@ -1,10 +1,17 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 먼저 APP_ENV 환경 변수를 읽어옵니다. 기본값은 'dev'로 설정할 수 있습니다.
+app_env = os.getenv("APP_ENV", "local")
+
+env_file = f".env.{app_env}"
+
 
 class Settings(BaseSettings):
     # .env 파일을 읽어서 환경 변수를 로드하도록 설정합니다.
     # 만약 .env 파일이 없다면, 시스템 환경 변수에서 직접 값을 찾습니다.
     # (이것이 K8s 환경에서 빛을 발하는 부분입니다!)
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=env_file, env_file_encoding="utf-8")
 
     # 여기에 필요한 모든 환경 변수를 "타입 힌트"와 함께 정의합니다.
     # pydantic이 자동으로 .env 파일에서 이 변수 이름(대소문자 무시)을 찾아 값을 채워줍니다.
@@ -30,6 +37,9 @@ class Settings(BaseSettings):
     # Naver API 
     NAVER_CLIENT_ID: str 
     NAVER_CLIENT_SECRET: str
+
+    # 현재 어떤 환경인지 명확히 알 수 있도록 APP_ENV도 설정에 포함시킵니다.
+    APP_ENV: str = app_env
 
 
 # 설정 클래스의 인스턴스를 만들어 다른 파일에서 쉽게 가져다 쓸 수 있도록 합니다.
