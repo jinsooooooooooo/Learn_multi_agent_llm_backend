@@ -5,7 +5,7 @@ import uuid
 
 # 우리가 6단계에서 만든 모델 클래스들을 import 합니다.
 from backend.database.models.chat_model import ChatSession, SessionMessage
-
+from backend.database.models.agent_model import LlmModel
 
 # ----------------------------------------------- 
 # ------- Chat Session 대하 생성 (첫 대화) ---------- 
@@ -102,8 +102,6 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
 
     # return result_cursor
 
-    # 방법2. 현재 세션의 최대 'sequence' 값을 조회합니다.
-
     new_message = SessionMessage(
         session_id=session_id,
         role=role,
@@ -119,7 +117,8 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
 
 
 
-
+# -----------------------------------------------
+# ------- message 히스토리 저장하기 ---------- 
 # SQL: SELECT coalesce( max(sequence),0) FROM llm_agent.session_message WHERE session_id = :session_id
 def get_last_sequence(db: Session, session_id: uuid.UUID) -> int :
     """주어진 세션의 마지막 시퀀스 번호를 조회합니다."""
@@ -127,3 +126,30 @@ def get_last_sequence(db: Session, session_id: uuid.UUID) -> int :
     return db.query(func.coalesce(func.max(SessionMessage.sequence),0))\
              .filter(SessionMessage.session_id == session_id)\
              .scalar()
+
+
+# ----------------------------------------------------------
+# ------------------- llm 모델 목록 조회  ---------------------
+def get_active_models(db: Session) -> lst[str]:
+    """
+    is_active가 True인 모든 LLM 모델의 ID 목록을 조회합니다.
+    - Args:
+        db (Session): 데이터베이스 세션 객체.
+    - Returns:
+        list[str]: 활성화된 모델 ID 문자열의 리스트.
+    """
+    # LlmModel 테이블에서 is_active가 True인 레코드만 필터링합니다.
+    # .with_entities(LlmModel.model_id)를 사용하여 model_id 컬럼만 선택합니다.
+    # .all()로 모든 결과를 가져오면 (model_id,) 형태의 튜플 리스트가 반환됩니다.
+    results = db.query(LlmModel)\
+                    .filter(LlmModel.is_active == True)\
+                    .with_entities(LlmModel.model_id)\
+                    .all()
+    
+    # 결과가 [(model_1,), (model_2,) 형태이므로, 각 튜플에서 첫 번째 요소만 추출하여
+    # [model_1, model_2 형태의 순수 문자열 리스트로 변환합니다.
+    # result = []
+    # for item in fetch_list: 
+    #     result.append(item[0])
+    
+    return [ item[0] for item in results ]

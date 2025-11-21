@@ -2,8 +2,8 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 먼저 APP_ENV 환경 변수를 읽어옵니다. 기본값은 'dev'로 설정할 수 있습니다.
+# 1. 어떤 .env 파일을 읽을지 결정하는 "메타-설정" (이전과 동일)
 app_env = os.getenv("APP_ENV", "local")
-
 env_file = f".env.{app_env}"
 
 
@@ -27,7 +27,8 @@ class Settings(BaseSettings):
 
     # FastAPI settings
     APP_NAME:str 
-    APP_ENV:str 
+    # 현재 어떤 환경인지 명확히 알 수 있도록 APP_ENV도 설정에 포함시킵니다.
+    APP_ENV: str = app_env
 
     # Redis settings
     REDIS_HOST:str = "localhost"
@@ -38,9 +39,12 @@ class Settings(BaseSettings):
     NAVER_CLIENT_ID: str 
     NAVER_CLIENT_SECRET: str
 
-    # 현재 어떤 환경인지 명확히 알 수 있도록 APP_ENV도 설정에 포함시킵니다.
-    APP_ENV: str = app_env
+   
 
 
 # 설정 클래스의 인스턴스를 만들어 다른 파일에서 쉽게 가져다 쓸 수 있도록 합니다.
 settings = Settings()
+
+
+# 실행 환경을 명확히 보여주는 로그 추가 (선택 사항이지만 매우 유용)
+print(f"[{settings.APP_NAME}] Running in '{settings.APP_ENV}' mode. Loaded settings from '{env_file if os.path.exists(env_file) else 'System Environment Variables'}'")

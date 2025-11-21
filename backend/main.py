@@ -1,7 +1,15 @@
 # main.py
-from fastapi import FastAPI
+import logging
+import time
+from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware # CORSMiddleware 임포트
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse # CORSMiddleware 임포트
+
+from backend.database.db_manager import engine
+from backend.core.config import settings
+
+
 from backend.routes.health_check import router as health_router
 from backend.routes.chat_routes import router as chat_router
 from backend.routes.meeting_routes import router as meeting_router
@@ -10,7 +18,11 @@ from backend.routes.news_routes import router as news_router
 from backend.routes.langchain_chat_routes import router as langchain_router
 from backend.routes.langchain_chatstream_routes import router as langchain_stream_router
 from backend.routes.stream_sample_routes import router as stream_sample_router
-from backend.database.db_manager import engine
+from backend.routes.models_routes import router as models_router
+
+# 로거 설정 (파일 상단에 추가)
+logging.basicConfig(level=logging.INFO, force=True) 
+logger = logging.getLogger(__name__)
 
 
 # @app.on_event("startup") #on_event(startup / shutdown) 더이상 지원하지 않아 lifespan 으로 변경
@@ -46,6 +58,7 @@ async def lifespan(app: FastAPI):
     print("--- Lifespan: Database connection pool disposed. ---")
 
 
+
 app = FastAPI(title="RAG Multi-Agent Backend",lifespan=lifespan)
 
 
@@ -57,6 +70,9 @@ app.include_router(news_router, prefix="/api")
 app.include_router(langchain_router, prefix="/api")
 app.include_router(langchain_stream_router, prefix="/api")
 app.include_router(stream_sample_router, prefix="/api")
+app.include_router(models_router, prefix="/api")
+
+
 
 # 백엔드 (CORS 허용 추가): (React/HTML 등 외부 요청을 허용해야 합니다)
 app.add_middleware(
@@ -72,3 +88,57 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "Welcome to RAG Multi-Agent Backend"}
+
+
+# logging 
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    
+    start_time = time.time()
+    
+    # 다음 핸들러(라우트 등)를 호출
+    response = await call_next(request)
+    
+    process_time = (time.time() - start_time) * 1000  # ms 단위로 변환
+    # 기본 로그 Info
+    logger.info(
+            f"Request: {request.method} {request.url.path} | "
+            f"Response: {response.status_code} | "
+            f"Processed in: {process_time:.2f}ms"
+        )
+    # local 또는 dev 환경에서만 추가적인 상세 정보를 DEBUG 레벨로 기록
+    if settings.APP_ENV in ("local", "dev"):
+        # debug1: 요청을 보낸 클라이언트의 IP 주소
+        client_host = request.client.host
+        logger.info(f"    - Client IP: {client_host}")
+        # debug2: 요청에 포함된 헤더 정보 (User-Agent, Authorization 등)
+        user_agent = request.headers.get("user-agent", "N/A")
+        logger.info(f"    - User-Agent: {user_agent}")
+        
+    
+    return response
+
+
+# --- 전역 예외 핸들러 추가 ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    처리되지 않은 모든 예외를 잡아 로깅하고,
+    일관된 형식의 500 에러 응답을 반환합니다.
+    """
+    # 1. 서버 로그에 상세한 에러 정보 기록
+    logger.error(
+        f"Unhandled error during request: {request.method} {request.url.path}",
+        exc_info=True  # 스택 트레이스를 함께 기록
+    )
+
+    # 2. 사용자에게 통일된 형식의 에러 메시지 제공
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "type": "InternalServerError",
+                "message": "서버 내부에서 예상치 못한 오류가 발생했습니다. 관리자에게 문의해주세요."
+            }
+        },
+    )
