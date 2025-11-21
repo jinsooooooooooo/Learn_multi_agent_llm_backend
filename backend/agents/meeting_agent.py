@@ -1,6 +1,7 @@
 import uuid
 from backend.agents.base_agent import BaseAgent
 from backend.core.onspace_api import get_meeting_rooms, reserve_meeting_room, cancel_meeting_room
+from backend.database.crud import chat_crud
 
 class MeetingAgent(BaseAgent):
     def __init__(self):
@@ -12,18 +13,23 @@ class MeetingAgent(BaseAgent):
             ),
         )
 
-    def handle(self, session_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
+    def handle(self, db, session_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
         """회의실 업무 처리 """
 
-        # 1. seesion_id가 없는 경우 대화 세션 생성
+        # 1. seesion_id가 없는 첫 대화인 경우 대화 세션 새로 생성한다.
         if session_id is None or session_id.strip() == "":
-            # session_id = insert_chat_seession(user_id, self.name, model, title)
-            session_id = str(uuid.uuid4()) 
-            print(f'[meeting_agent.py] create new seesion_id!!!! -> {session_id}')
+            # session_id = str(uuid.uuid4()) 
+            new_seesion = chat_crud.create_chat_session(db,user_id,self.name,model)
+            session_id = str(new_seesion.session_id)
+            
 
-        # 2. 이 세션에서 이뤄진 대화 시트로리르저장 한다.
-        chat_history = []  
-        # fetch_chat_history(seesion_id) from databse
+        # 2. 이 대화 세션의 히스토리를 조회한다 (llm 질의에 lanchain을 구현하기 위함)
+        chat_history = []
+        last_sequence = 0
+        fetch_historys = chat_crud.get_chat_history(db, session_id) 
+        for history in fetch_historys:
+            chat_history.append( { "role":history.role , "content": history.content } )
+            last_sequence = history.sequence
 
 
         # 3. model + agent 조합으로 prompt 조합
@@ -39,34 +45,39 @@ class MeetingAgent(BaseAgent):
         - 사용자가 단순히 회의실 상태를 물어보면 예약 없이 목록만 정리해 주세요. 
         - 만약 사용자가 회의실과 관계 없는 요청을 했다면 현재 회의시 목록은 굳이 답변하지 않아도 좋습니다. 
         - 사용자가 '예약' 또는 '예약해줘' 등의 의도를 표현하면 적절한 회의실 조건과 시간을 판단하여 추천하고,
-          추천한 회의실 이름과 시간을 '###예약:<회의실이름> | <시작시간>~<종료시간>' 형태로 출력해주세요.
-          <시작시간>과 <종료시간>의 양식은 <HH24:00> 으로 표현해주세요
-          예: "A 회의실이 적합합니다. ###예약:A | 15:00~17:00"
-          단, 예약 가능한 회의실만 선택하세요. 
+           추천한 회의실 이름과 시간을 '###예약:<회의실이름> | <시작시간>~<종료시간>' 형태로 두고 출력해주세요.
+           <시작시간>과 <종료시간>의 양식은 <HH24:00> 으로 표현해주세요
+           예: "A 회의실이 적합합니다. ###예약:A | 15:00~17:00"
+           단, 예약 가능한 회의실만 선택하세요. 
         - 사용자가 '예약취소' 또는 '에약취소해줘' 등의 의도를 표현하면 적절한 회의실 이름을 판단하고,
-          회의실 이름을 '###취소:<회의실이름>| <시작시간>~<종료시간>' 형태로 출력해주세요.
-          <시작시간>과 <종료시간>의 양식은 <HH24:00> 으로 표현해주세요
-          예: "A 회의실이 적합합니다. ###취소:A | 12:00~15:00"
-          단, 이미 예약 되어 있는 회의실만 취소 합니다.. 
+           회의실 이름을 '###취소:<회의실이름>| <시작시간>~<종료시간>' 형태로 제일 마지막에 개행을 두고 출력해주세요.
+           <시작시간>과 <종료시간>의 양식은 <HH24:00> 으로 표현해주세요
+           예: "A 회의실이 적합합니다. ###취소:A | 12:00~15:00"
+           단, 이미 예약 되어 있는 회의실만 취소 합니다.. 
         """
 
         # 4. llm 질의하기 
-        # save_history(seesion_id,'USER',message)
+        last_sequence += 1
+        chat_crud.save_message(db,session_id,"user",message,last_sequence)
         llm_reply = self._llm_reply(model, message, chat_history)
+        last_sequence += 1
+        chat_crud.save_message(db,session_id,"assistant",llm_reply,last_sequence)
 
-        # 5. LLM 답변 히스토리 저장 
-        # save_history(seesion_id,'AGENT',llm_reply)
-
-        # 회의실 예약 여부 감지
+        # optional] 답변에 회의실 예약 여부 감지
         if "###예약:" in llm_reply:
             room_name = llm_reply.split("###예약:")[-1].strip().split()[0]
-            result = reserve_meeting_room(room_name)
+            print(f'room_name: {room_name}')
+            result = reserve_meeting_room(room_name,user_id)
             llm_reply = llm_reply + "\n\n" + result["message"]
         
-        # 회의실 취소 여부 감지
+        # optional] 답변에 회의실 취소 여부 감지
         if "###취소:" in llm_reply:
             room_name = llm_reply.split("###취소:")[-1].strip().split()[0]
-            result = cancel_meeting_room(room_name)
+            result = cancel_meeting_room(room_name,user_id)
             llm_reply = llm_reply + "\n\n" + result["message"]
+
+
+        # 트랜잭션을 최종적으로 DB에 확정(commit)합니다.
+        db.commit()    
         
         return llm_reply, session_id

@@ -1,8 +1,9 @@
 # backend/routes/meeting_routes.py
 from typing import Optional
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from backend.agents.meeting_agent import MeetingAgent
 from pydantic import BaseModel
+from backend.database.db_manager import get_db
 
 router = APIRouter(tags=["Agent API"])
 agent = MeetingAgent()
@@ -19,10 +20,10 @@ class MeetingRequest(BaseModel):
 
 
 @router.post("/meeting")
-async def meeting(payload: MeetingRequest):
+async def meeting(payload: MeetingRequest, db = Depends(get_db)):
     # user_input = payload.message
     # response = agent.handle(user_input)
-    response_text, session_id = agent.handle(  payload.session_id, payload.user_id , payload.model, payload.message )
+    response_text, session_id = agent.handle( db, payload.session_id, payload.user_id , payload.model, payload.message )
 
     return {
         "agent": agent.name, 
