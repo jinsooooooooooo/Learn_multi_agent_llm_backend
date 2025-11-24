@@ -3,6 +3,7 @@
 
 # Ignore environment files containing secrets
 .env
+.env.local
 
 # 파이썬 캐시 파일 및 폴더
 __pycache__/
