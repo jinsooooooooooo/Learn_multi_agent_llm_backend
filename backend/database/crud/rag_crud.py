@@ -38,7 +38,12 @@ def bulk_insert_chunks_and_vectors(
             sequence_num=chunk_item['sequence'],
             chunk_metadata=chunk_item['metadata']
         )
-        chunks_to_add.append(new_chunk)
+        # RagDocumentChunks에 먼저 저장을 하고 flush() 해야 chunk_id를 알 수 있다.
+        # chunks_to_add.append(new_chunk)
+        db.add(new_chunk)
+        db.flush()
+
+        print(f'new_chunk.chunk_id: {new_chunk.chunk_id}')
 
         # 2. RagVectorsMinilm 객체 생성 (벡터가 있는 경우)
         if 'vector_minilm' in chunk_item:
@@ -59,8 +64,9 @@ def bulk_insert_chunks_and_vectors(
             )
 
     # SQLAlchemy의 bulk_save_objects를 사용하여 여러 객체를 한 번의 쿼리로 효율적으로 저장합니다.
-    if chunks_to_add:
-        db.bulk_save_objects(chunks_to_add)
+    # if chunks_to_add:
+    #     db.bulk_save_objects(chunks_to_add)
+    #     db.flush()
     if vectors_minilm_to_add:
         db.bulk_save_objects(vectors_minilm_to_add)
     if vectors_gemini_to_add:

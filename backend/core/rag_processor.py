@@ -1,5 +1,6 @@
 import io
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+# from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 # --- 1. 우리가 만든 모듈과 모델 import ---
@@ -73,6 +74,12 @@ def _process_single_file(db: Session, file_metadata: dict):
         file_size=file_metadata['Size'],
         access_scope={"type": "global"} # 기본값은 전역 공개
     )
+
+    db.add(new_source)
+    db.flush()
+
+    print(f' new_source.document_id: {new_source.document_id}')
+
     # CRUD 함수를 사용하여 Bulk Insert 실행
     bulk_insert_chunks_and_vectors(db, new_source, chunks_data)
     print(f"'{file_key}' 파일 처리 완료 및 DB 저장 성공.")
