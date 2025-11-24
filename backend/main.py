@@ -19,6 +19,7 @@ from backend.routes.langchain_chat_routes import router as langchain_router
 from backend.routes.langchain_chatstream_routes import router as langchain_stream_router
 from backend.routes.stream_sample_routes import router as stream_sample_router
 from backend.routes.models_routes import router as models_router
+from backend.routes.rag_routes import router as rag_router
 
 # 로거 설정 (파일 상단에 추가)
 logging.basicConfig(level=logging.INFO, force=True) 
@@ -71,6 +72,8 @@ app.include_router(langchain_router, prefix="/api")
 app.include_router(langchain_stream_router, prefix="/api")
 app.include_router(stream_sample_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
+app.include_router(rag_router, prefix="/api")
+
 
 
 
