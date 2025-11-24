@@ -40,12 +40,12 @@ class ModelAgentPromptDef(OrmBase):
 
     agent = relationship(
         "AgentInfo",
-        primaryjoin = "and_(ModelAgentPromptDef.agent_id == AgentInfo.agent_id, AgentInfo.AgentInfo == True )"
+        primaryjoin = "and_(ModelAgentPromptDef.agent_id == AgentInfo.agent_id, AgentInfo.is_active == True )"
     )
 
     model = relationship(
         "LlmModel",
-        primaryjoin="and_ ModelAgentPromptDef.model_id == LlmModel.model_id, LlmModel.is_active == True )"
+        primaryjoin="and_(ModelAgentPromptDef.model_id == LlmModel.model_id, LlmModel.is_active == True )"
     )
     
 
