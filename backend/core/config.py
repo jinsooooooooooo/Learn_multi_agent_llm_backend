@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # 여기에 필요한 모든 환경 변수를 "타입 힌트"와 함께 정의합니다.
     # pydantic이 자동으로 .env 파일에서 이 변수 이름(대소문자 무시)을 찾아 값을 채워줍니다.
     DATABASE_URL: str
+    RAG_DATABASE_URL: str
 
     # OpenAI 설정
     OPENAI_API_KEY: str
@@ -39,6 +40,12 @@ class Settings(BaseSettings):
     NAVER_CLIENT_ID: str 
     NAVER_CLIENT_SECRET: str
 
+    # NCP Object Storage
+    NCP_ACCESS_KEY:str
+    NCP_SECRET_KEY:str
+    NCP_REGION:str
+    NCP_OBJECT_STORAGE_ENDPOINT:str
+    NCP_BUCKET_NAME:str
    
 
 
