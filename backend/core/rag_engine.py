@@ -1,11 +1,12 @@
 import io
+import os
 # from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
 # --- 모델 import ---
 from backend.core.ncp_storage import ncp_storage_client
-from backend.database.crud.rag_crud import get_all_sources, bulk_insert_chunks_and_vectors
+from backend.database.crud.rag_crud import get_all_sources, bulk_insert_chunks_and_vectors, delete_rag_source
 from backend.database.models.rag_model import RagSources
 # (아직 만들지 않았지만) 앞으로 만들 임베딩 모듈
 # from .rag_embedder import get_minilm_embeddings_batch, get_gemini_embeddings_batch
@@ -18,7 +19,10 @@ import numpy as np
 import google.generativeai as genai
 from backend.core.config import settings # 설정 파일에서 API 키를 가져오기 위해 import
 
-
+# --- PyMuPDF (fitz)와 python-docx를 직접 import ---
+import fitz  # PyMuPDF
+from docx import Document # python-docx
+import pandas as pd
 
 # 모델 객체를 저장할 전역 변수. 처음에는 비어 있습니다. (싱글톤 패턴)
 _minilm_model: Optional[SentenceTransformer] = None
@@ -85,6 +89,9 @@ def get_gemini_embeddings_batch(texts: list[str]) -> list[list[float]]:
 def _process_single_file(db: Session, file_metadata: dict):
     """하나의 파일을 다운로드, 처리하고 DB에 저장하는 내부 함수"""
     file_key = file_metadata['Key']
+    file_name = os.path.basename(file_key)
+    file_ext = os.path.splitext(file_name)[1].lower()
+                                           
     print(f"'{file_key}' 파일 처리 시작...")
 
     # --- 1. 파일 다운로드 ---
@@ -93,12 +100,54 @@ def _process_single_file(db: Session, file_metadata: dict):
         print(f"'{file_key}' 파일 다운로드 실패.")
         return
 
-    # TODO: 나중에 파일 타입에 따라 다른 Document Loader를 사용해야 합니다.
-    # 지금은 모든 파일을 utf-8 텍스트로 가정합니다.
+    file_text = ''
+    pdf_doc = None
+    doc = None
     try:
-        file_text = file_content_bytes.decode('utf-8')
-    except UnicodeDecodeError:
-        print(f"'{file_key}'은 텍스트 파일이 아닙니다. 건너뜁니다.")
+        if file_ext == '.txt':
+            file_text = file_content_bytes.decode('utf-8')
+        
+        elif file_ext == '.pdf':
+            pdf_doc = fitz.open(stream=file_content_bytes, filetype="pdf")
+            file_text = "\n".join([page.get_text() for page in pdf_doc])
+
+        elif file_ext == '.docx':
+            doc = Document(io.BytesIO(file_content_bytes))
+            file_text = "\n".join([para.text for para in doc.paragraphs]) 
+        elif file_ext in ('.xlsx', '.xls'):
+            # 1. Bytes 데이터를 pandas가 읽을 수 있는 형태로 변환
+            xls_file = io.BytesIO(file_content_bytes)
+            
+            # 2. 엑셀 파일의 모든 시트 이름을 가져옴
+            excel_file = pd.ExcelFile(xls_file)
+            sheet_names = excel_file.sheet_names
+            
+            all_sheets_text = []
+            # 3. 각 시트를 순회하며 데이터를 텍스트로 변환
+            for sheet_name in sheet_names:
+                # 시트 이름으로 특정 시트를 DataFrame으로 읽기
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                
+                # 시트 이름과 내용을 텍스트로 추가
+                sheet_header = f"--- Sheet: {sheet_name} ---\n"
+                # df.to_string()은 DataFrame을 사람이 읽기 좋은 텍스트 테이블로 변환
+                sheet_content = df.to_string(index=False)
+                all_sheets_text.append(sheet_header + sheet_content)
+            
+            # 4. 모든 시트의 텍스트를 하나의 문자열로 합치기
+            file_text = "\n\n".join(all_sheets_text)
+        else:
+            print(f"지원하지 않는 파일 형식입니다: {file_ext}. 건너뜁니다.")
+            return
+    except Exception as e:
+        print(f"'{file_key}' 파일 처리 중 오류 발생: {e}")
+        return
+    finally:
+        if pdf_doc: 
+            pdf_doc.close()
+
+    if not file_text.strip():
+        print(f"'{file_key}' 파일 변환 후 텍스트가 없습니다.")
         return
 
     # --- 2. 텍스트 분할 (Chunking) ---
@@ -155,6 +204,9 @@ def refresh_rag_data(db: Session):
     if not ncp_files:
         print("NCP 버킷에 파일이 없거나 조회에 실패했습니다.")
         return
+    # 빠른 조회를 위한 딕셔너리 map 변환
+    ncp_files_map = {file['Key']: file for file in ncp_files}
+
 
     # 2. 현재 DB에 저장된 모든 소스 정보 가져오기
     db_sources_list = get_all_sources(db)
@@ -163,7 +215,7 @@ def refresh_rag_data(db: Session):
     
     print(f"NCP 버킷에서 {len(ncp_files)}개의 파일을, DB에서 {len(db_sources_map)}개의 소스를 찾았습니다.")
 
-    # 3. NCP 파일 목록을 순회하며 DB와 비교
+    # 3. NCP 파일 목록을 순회하며 DB와 비교 한다.
     for file_meta in ncp_files:
         file_key = file_meta['Key']
         
@@ -173,24 +225,32 @@ def refresh_rag_data(db: Session):
 
         db_record = db_sources_map.get(file_key)
 
-        # 경우 1: DB에 없는 새로운 파일
+        # case 1: DB에 없는 새로운 파일
         if not db_record:
             print(f"[신규] 새로운 파일 '{file_key}'을(를) 발견했습니다.")
             _process_single_file(db, file_meta)
         
-        # 경우 2: DB에 있지만, 수정 시간이나 파일 크기가 변경된 파일
-        elif db_record.last_modified_time != file_meta['LastModified' or db_record.file_size != file_meta['Size']]:
+        # case 2: DB에 있지만, 수정 시간이나 파일 크기가 변경된 파일
+        elif (db_record.last_modified_time != file_meta['LastModified'] 
+              or db_record.file_size != file_meta['Size']) :
             print(f"[변경] '{file_key}' 파일이 변경되었습니다.")
-            # TODO: 기존 문서를 is_active=False로 바꾸고, 새로 처리하는 로직 추가 필요
-            # 지금은 단순화를 위해 그냥 새로 추가 처리합니다.
+            # TODO: 기존 문서를 삭제
+            delete_rag_source(db, file_key)
+            db.flush()
+            # 새로 추가 처리합니다.
             _process_single_file(db, file_meta)
 
-        # 경우 3: DB에도 있고, 변경되지도 않은 파일 -> 아무것도 안 함
+        # case 3: DB에도 있고, 변경되지도 않은 파일 -> 아무것도 안 함
         else:
             print(f"[유지] '{file_key}' 파일은 최신 상태입니다.")
             pass
     
-    # TODO: NCP에는 없는데 DB에만 있는 파일(삭제된 파일)을 찾아 is_active=False로 처리하는 로직 추가 필요
+    # DB목록에 있는데NCP에 없는 파일  파일(삭제된 파일)을 찾아 DB에서 삭제 한다. 
+    for db_source in db_sources_map:
+        if db_source not in ncp_files_map:
+            delete_rag_source(db, db_source)
+
+
 
     db.commit() # 모든 변경사항을 최종 커밋
     print("RAG 데이터 동기화 프로세스를 완료했습니다.")
