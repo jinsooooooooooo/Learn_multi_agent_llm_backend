@@ -1,6 +1,9 @@
 # backend\agent\base_agent.py
 from abc import ABC, abstractmethod
 from backend.core.llm_core import call_llm
+from backend.database.crud import chat_crud
+from sqlalchemy.orm import Session
+
 
 class BaseAgent(ABC):
     """모든 에이전트의 공통 기반 클래스"""
@@ -12,15 +15,34 @@ class BaseAgent(ABC):
     @abstractmethod
     def handle(self, db, session_id, user_id, model, message) -> tuple[str,str]:
         """각 에이전트별 요청 처리 로직"""
-        print( 
-            f'[_agent.py] >>>>>> handle( self, db: Session, session_id:str , user_id: str, model:str , message: str)  \n' 
-            f'  - db: {db} \n'
-            f'  - sesseion_id: {session_id} \n'
-            f'  - user_id: {user_id} \n'
-            f'  - model: {model} \n'
-            f'  - message: {message} \n'
-        )
+        print(f'======'*20)
+        print(f""" 
+    - db: {db} 
+    - sesseion_id: {session_id} 
+    - user_id: {user_id} 
+    - model: {model} 
+    - message: {message} 
+        """)
+        print(f'======'*20)
         pass
+
+    def _create_chat_seesion(self, db:Session, user_id:str, agent_id:str, model_id:str) -> str:
+        new_seesion = chat_crud.create_chat_session(db=db, user_id=user_id, agent_id=agent_id, model_id=model_id)
+        return new_seesion.session_id
+    
+    def _get_chat_history(self,db:Session, session_id:str) -> list:
+        chat_history = chat_crud.get_chat_history(db=db, session_id=session_id)
+        return chat_history
+    
+    def _save_massgae_history(self,db:Session, session_id:str, role:str, content:str, sequence:int) -> None:
+        chat_crud.save_message(db=db, session_id=session_id, role=role, content=content, sequence=sequence)
+        return None
+    
+    def _get_last_sequence(self,db:Session, session_id:str) -> int:
+        last_sequence = chat_crud.get_last_sequence(db=db, session_id=session_id)
+        return last_sequence
+    
+    
 
         
     def _llm_reply(self, model:str , message: str, chat_history: list[dict] = None , prompt: str = None) -> str:
