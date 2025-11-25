@@ -3,24 +3,83 @@ import io
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sqlalchemy.orm import Session
 
-# --- 1. 우리가 만든 모듈과 모델 import ---
+# --- 모델 import ---
 from backend.core.ncp_storage import ncp_storage_client
 from backend.database.crud.rag_crud import get_all_sources, bulk_insert_chunks_and_vectors
 from backend.database.models.rag_model import RagSources
 # (아직 만들지 않았지만) 앞으로 만들 임베딩 모듈
 # from .rag_embedder import get_minilm_embeddings_batch, get_gemini_embeddings_batch
 
-# --- 임시 임베딩 함수 (테스트용) ---
-# TODO: 나중에 이 함수들을 rag_embedder.py로 옮기고 실제 구현으로 대체해야 합니다.
+# ----- minilm vector 임베딩을 위한 패키지 임포트 
+from sentence_transformers import SentenceTransformer
+from typing import List, Optional
+import numpy as np
+# ----- gemini vector 임베딩을 위한 패키지 임포트 
+import google.generativeai as genai
+from backend.core.config import settings # 설정 파일에서 API 키를 가져오기 위해 import
+
+
+
+# 모델 객체를 저장할 전역 변수. 처음에는 비어 있습니다. (싱글톤 패턴)
+_minilm_model: Optional[SentenceTransformer] = None
+
+
+# --- 새로 추가: Gemini API 설정 ---
+# 애플리케이션 시작 시점에 한 번만 API 키를 설정합니다.
+try:
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    print("Gemini API가 성공적으로 설정되었습니다.")
+except Exception as e:
+    print(f"Gemini API 설정 중 오류 발생: {e}")
+    # 이 경우, Gemini 임베딩 함수 호출 시 에러가 발생하게 됩니다.
+
+
+
+def _get_minilm_model() -> SentenceTransformer:
+    global _minilm_model
+    if _minilm_model is None:
+        _minilm_model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
+    return _minilm_model    
+
+
+
+# --- 임시 임베딩 함수  ---
 def get_minilm_embeddings_batch(texts: list[str]) -> list[list[float]]:
-    print(f"임시 MiniLM 임베딩 생성: {len(texts)}개 청크")
-    # 실제로는 sentence-transformers 모델로 벡터 생성
-    return [[0.1] * 384 for _ in texts] # 384차원의 가짜 벡터
+    model = _get_minilm_model()
+    embeddings_np: np.ndarray = model.encode(texts, show_progress_bar=True)
+    return embeddings_np.tolist()
+
 
 def get_gemini_embeddings_batch(texts: list[str]) -> list[list[float]]:
-    print(f"임시 Gemini 임베딩 생성: {len(texts)}개 청크")
-    # 실제로는 Google AI API로 벡터 생성
-    return [[0.2] * 768 for _ in texts] # 768차원의 가짜 벡터
+    """
+    주어진 텍스트 목록에 대해 Google Gemini 임베딩을 배치로 생성합니다.
+    
+    Args:
+        texts (List[str]): 임베딩을 생성할 텍스트 청크들의 리스트.
+
+    Returns:
+        List[List[float]]: 각 텍스트에 대한 임베딩 벡터들의 리스트.
+    """
+    print(f"Gemini API를 호출하여 {len(texts)}개의 텍스트에 대한 임베딩을 생성합니다.")
+
+    try:
+        # 'text-embedding-004'는 최신 Google 임베딩 모델입니다.
+        # genai.embed_content 함수는 텍스트 리스트를 받아 임베딩 리스트를 반환합니다.
+        result = genai.embed_content(
+            model="models/text-embedding-004",
+            content=texts,
+            task_type="RETRIEVAL_DOCUMENT" # '문서 검색' 목적의 임베딩임을 명시
+        )
+        return result['embedding']
+    except Exception as e:
+        print(f"Gemini 임베딩 생성 중 오류 발생: {e}")
+        # 오류 발생 시, 해당 배치를 건너뛰기 위해 빈 리스트를 반환하거나
+        # 혹은 텍스트 개수만큼 None을 채워서 반환할 수 있습니다.
+        # 여기서는 간단하게 빈 벡터 리스트를 반환하여 오류를 전파하지 않도록 처리합니다.
+        # 실제 프로덕션에서는 재시도(retry) 로직을 추가하는 것이 좋습니다.
+        num_texts = len(texts)
+        # Gemini 모델(text-embedding-004)은 768차원 벡터를 반환합니다.
+        return [[0.0] * 768 for _ in range(num_texts)]
 
 
 def _process_single_file(db: Session, file_metadata: dict):
@@ -52,17 +111,18 @@ def _process_single_file(db: Session, file_metadata: dict):
 
     # --- 3. 임베딩 생성 ---
     minilm_vectors = get_minilm_embeddings_batch(chunks)
-    gemini_vectors = get_gemini_embeddings_batch(chunks)
+   # gemini_vectors = get_gemini_embeddings_batch(chunks)
 
     # --- 4. DB 저장을 위한 데이터 구조 조립 ---
     chunks_data = []
-    for i, (text, vec_minilm, vec_gemini) in enumerate(zip(chunks, minilm_vectors, gemini_vectors)):
+    # for i, (text, vec_minilm, vec_gemini) in enumerate(zip(chunks, minilm_vectors, gemini_vectors)):
+    for i, (text, vec_minilm) in enumerate(zip(chunks, minilm_vectors)):
         chunks_data.append({
             "text": text,
             "sequence": i,
             "metadata": {"source_file": file_key},
             "vector_minilm": vec_minilm,
-            "vector_gemini": vec_gemini,
+            #"vector_gemini": vec_gemini,
         })
     
     # --- 5. DB에 저장 ---

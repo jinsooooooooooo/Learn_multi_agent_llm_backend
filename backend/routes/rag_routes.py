@@ -1,19 +1,60 @@
 # rag_routes.py
 
+from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 # 1. RAG DB 세션을 가져오는 의존성 함수를 import 합니다.
-from backend.database.db_manager import get_rag_db
+from backend.database.db_manager import get_db, get_rag_db
 # 2. 우리가 만든 핵심 처리 함수를 import 합니다.
-from backend.core.rag_processor import refresh_rag_data
+from backend.core.rag_engine import refresh_rag_data
+
+from pydantic import BaseModel
+
+from backend.agents.rag_chat_agent import RagChatAgent
 
 # 3. RAG 관리용 API 라우터를 생성합니다.
 router = APIRouter(tags=["RAG Management"])
 
+agent = RagChatAgent()
 
 
-@router.post("/refresh", summary="RAG 데이터 동기 처리") # OpenAPI 문서에 표시될 요약 추가
+class RagChatRequest(BaseModel):
+    """
+    RAG 채팅 Agent 요청 
+    """
+    # agent_id: str = "ChatAgent"
+    session_id: Optional[str] = None
+    user_id: str = 'guest'
+    model: str = 'gpt-4o-mini'
+    message: str # 사용자의 입력 메시지 (필수 문자열 필드)
+
+
+@router.post("/rag/chat", summary="RAG 기반 채팅(Ncp object Storage 파일 참고))")
+async def rag_chat( 
+    payload: RagChatRequest,
+    db: Session = Depends(get_db),
+    rag_db: Session = Depends(get_rag_db)
+):
+    
+    response_text, seesion_id = agent.handle(
+        db=db,
+        rag_db=rag_db,
+        session_id=payload.session_id,
+        user_id=payload.user_id,
+        model=payload.model,
+        message=payload.message
+        )
+        
+    return {
+            "agent": agent.name,
+            "reply": response_text, 
+            "session_id": seesion_id}
+
+
+
+
+@router.post("/rag/refresh", summary="RAG 데이터 동기 처리") # OpenAPI 문서에 표시될 요약 추가
 async def refresh_rag_sync(
     db: Session = Depends(get_rag_db)
 ):
@@ -27,7 +68,7 @@ async def refresh_rag_sync(
     # 5. 클라이언트에게 작업이 시작되었음을 알리는 응답을 즉시 보냅니다.
     return {"message": "RAG data refresh process done"}
 
-@router.post("/bg_refresh",  summary="RAG 데이터 비동기 처리")
+@router.post("/rag/refresh_bg",  summary="RAG 데이터 비동기 처리")
 async def refresh_rag_background(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_rag_db)

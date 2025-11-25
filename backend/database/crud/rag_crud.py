@@ -1,6 +1,7 @@
 # backend/database/crud/rag_crud.py
 from sqlalchemy.orm import Session
 from typing import List, Dict
+from sqlalchemy import text
 
 # 1. 우리가 만든 RAG 모델 클래스들을 import 합니다.
 from backend.database.models.rag_model import RagSources, RagDocumentChunks, RagVectorsMinilm, RagVectorsGemini
@@ -27,29 +28,33 @@ def bulk_insert_chunks_and_vectors(
     """
     # 딕셔너리 리스트 형태의 청크 데이터로부터 ORM 객체 리스트를 생성합니다.
     chunks_to_add = []
+    
+
+    # rag_docuemnt_chunks 먼저 insert 하여 chunk_id 가져오기 
+    for chunk_item in chunks_data:
+        chunks_to_add.append(
+            RagDocumentChunks(
+                document_id=source.document_id,
+                chunk_text=chunk_item['text'],
+                sequence_num=chunk_item['sequence'],
+                chunk_metadata=chunk_item['metadata']
+            )
+        )   
+
+    db.bulk_save_objects(chunks_to_add, return_defaults=True)
+    print(f"{len(chunks_to_add)}개의 청크를 DB에 저장했습니다.")
+
     vectors_minilm_to_add = []
     vectors_gemini_to_add = []
 
-    for chunk_item in chunks_data:
-        # 1. RagDocumentChunks 객체 생성
-        new_chunk = RagDocumentChunks(
-            document_id=source.document_id,
-            chunk_text=chunk_item['text'],
-            sequence_num=chunk_item['sequence'],
-            chunk_metadata=chunk_item['metadata']
-        )
-        # RagDocumentChunks에 먼저 저장을 하고 flush() 해야 chunk_id를 알 수 있다.
-        # chunks_to_add.append(new_chunk)
-        db.add(new_chunk)
-        db.flush()
-
-        print(f'new_chunk.chunk_id: {new_chunk.chunk_id}')
+    for i, chunk_orm in enumerate(chunks_to_add):
+        chunk_item = chunks_data[i]
 
         # 2. RagVectorsMinilm 객체 생성 (벡터가 있는 경우)
         if 'vector_minilm' in chunk_item:
             vectors_minilm_to_add.append(
                 RagVectorsMinilm(
-                    chunk_id=new_chunk.chunk_id,
+                    chunk_id=chunk_orm.chunk_id,
                     embedding_vector=chunk_item['vector_minilm']
                 )
             )
@@ -58,7 +63,7 @@ def bulk_insert_chunks_and_vectors(
         if 'vector_gemini' in chunk_item:
             vectors_gemini_to_add.append(
                 RagVectorsGemini(
-                    chunk_id=new_chunk.chunk_id,
+                    chunk_id=chunk_orm.chunk_id,
                     embedding_vector=chunk_item['vector_gemini']
                 )
             )
@@ -74,3 +79,126 @@ def bulk_insert_chunks_and_vectors(
 
     # 참고: bulk 작업은 ORM의 관계(relationship) 자동 동기화 같은 기능이
     # 일부 제한될 수 있지만, 대량 삽입 시에는 훨씬 빠릅니다.
+
+
+
+
+ # ----- vector 유사한 chuk 검사
+
+def search_similar_chunks(
+    db: Session,
+    user_id: str,  
+    query_vector: List[float],
+    model_type: str = "minilm",
+    top_k: int = 20,
+    similarity_threshold: float = 0.8
+) -> List[Dict]:
+    """
+    주어진 쿼리 벡터와 가장 유사한 문서 청크를 DB에서 검색합니다.
+
+    Args:
+        db (Session): SQLAlchemy DB 세션.
+        query_vector (List[float]): 사용자의 질문을 임베딩한 벡터.
+        model_type (str): 검색에 사용할 벡터 모델 종류 ('minilm' 또는 'gemini').
+        top_k (int): 반환할 가장 유사한 청크의 개수.
+
+    Returns:
+        List[Dict]: 각 청크의 텍스트, 유사도 점수, 소스 파일 정보가 담긴 딕셔너리 리스트.
+             "text": item.chunk_text,
+             "similarity": item.similarity,
+             "source_identifier": item.source_identifier ,
+    """
+
+    
+
+     # 사용할 벡터 테이블과 벡터 칼럼을 동적으로 선택합니다.
+    if model_type == "minilm":
+        vector_table = RagVectorsMinilm
+    elif model_type == "gemini":
+        vector_table = RagVectorsGemini
+    else:
+        raise ValueError("지원하지 않는 모델 타입입니다: 'minilm' 또는 'gemini'를 사용하세요.")
+    
+    query_vector_str = str(query_vector)
+
+    # --- 최종 SQL 쿼리 ---
+    query = text(f"""
+        WITH ranked_chunks AS (
+            SELECT
+                chunks.chunk_text,
+                chunks.chunk_metadata,
+                sources.source_identifier,
+                1 - (vectors.embedding_vector <=> :query_vector) AS similarity,
+                RANK() OVER (ORDER BY vectors.embedding_vector <=> :query_vector) as rnk
+            FROM
+                 llm_agent_rag.{vector_table.__tablename__} AS vectors
+            JOIN
+                llm_agent_rag.rag_document_chunks AS chunks ON vectors.chunk_id = chunks.chunk_id
+            JOIN
+                llm_agent_rag.rag_sources AS sources ON chunks.document_id = sources.document_id
+            WHERE
+                -- 1. 활성화된 문서만 검색 대상으로 함
+                sources.is_active = true
+                -- 2. 접근 권한 확인:
+                AND (
+                    -- 2.1. scope 타입이 'global'인 문서는 누구나 접근 가능
+                    sources.access_scope ->> 'type' = 'global'
+                    -- 2.2. 또는, scope 타입이 'user'이고 user_id가 일치하는 문서
+                    OR (
+                        sources.access_scope ->> 'type' = 'user'
+                        AND sources.access_scope ->> 'user_id' = :user_id
+                    )
+                )
+        )
+        SELECT
+            chunk_text,
+            similarity,
+            chunk_metadata,
+            source_identifier
+        FROM
+            ranked_chunks
+        WHERE
+            similarity >= :similarity_threshold
+            AND rnk <= :top_k
+        ORDER BY
+            similarity DESC;
+    """)
+
+    top_k = min(top_k,20)
+
+    # 쿼리 실행 시 user_id 파라미터를 추가합니다.
+    results = db.execute(
+        query,
+        {
+            "query_vector": query_vector_str,
+            "top_k": top_k,
+            "similarity_threshold": similarity_threshold,
+            "user_id": user_id  
+        }
+    ).fetchall()
+
+    response = []
+    for item in results:
+        response.append({
+            "text": item.chunk_text,
+            "similarity": item.similarity,
+            "source_identifier": item.source_identifier ,
+        })
+
+    return response
+
+
+
+    
+
+
+
+    # pgvector의 코사인 유사도 연산자(<=>)를 사용하여 검색 쿼리를 실행합니다.
+    # 코사인 거리는 0에 가까울수록 유사하므로, 1을 빼서 '유사도 점수'로 변환합니다 (1에 가까울수록 유사).
+    # NOTE: SQLAlchemy 2.0+ 에서는 파라미터 바인딩 시 :param_name 형식을 사용합니다.
+    # 벡터를 문자열로 변환하여 쿼리에 직접 넣는 것은 SQL Injection에 취약할 수 있으나,
+    # pgvector에서는 list를 직접 바인딩하는 것이 복잡하여 종종 이 방식을 사용합니다.
+    # 프로덕션에서는 ORM 레벨에서 지원하는 방식을 우선적으로 고려해야 합니다.
+
+    
+pass
