@@ -40,8 +40,9 @@ def call_llm( model: str , prompt: str, message: str, temperature: float = 0.3, 
     Return:
         - str
     """
+    print(f'======'*20)
     print( 
-        f'[llm_core.py] >>>>>> call_llm( model, prompt, message, temperature, chat_history)  \n' 
+        f'[llm_core.py] \n' 
         f'  - model: {model} \n'
         f'  - prompt: {prompt} \n'
         f'  - message: {message} \n'

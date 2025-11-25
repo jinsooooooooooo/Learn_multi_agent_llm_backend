@@ -103,8 +103,8 @@ def _process_single_file(db: Session, file_metadata: dict):
 
     # --- 2. 텍스트 분할 (Chunking) ---
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
+        chunk_size=600,
+        chunk_overlap=60,
     )
     chunks = text_splitter.split_text(file_text)
     print(f"'{file_key}' 파일을 {len(chunks)}개의 청크로 분할했습니다.")

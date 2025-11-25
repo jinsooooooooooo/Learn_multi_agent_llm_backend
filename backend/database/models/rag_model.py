@@ -28,6 +28,7 @@ class RagSources(RagOrmBase):
     chunks = relationship(
         "RagDocumentChunks",
         primaryjoin="RagSources.document_id == RagDocumentChunks.document_id",
+        cascade="all, delete-orphan",
         back_populates="source"
 
     )
@@ -46,8 +47,8 @@ class RagDocumentChunks(RagOrmBase):
 
     # 테이블간 relationship 선언
     source = relationship("RagSources", back_populates="chunks")
-    vector_minilm = relationship("RagVectorsMinilm", uselist=False, back_populates="chunk")
-    vector_gemini = relationship("RagVectorsGemini", uselist=False, back_populates="chunk")
+    vector_minilm = relationship("RagVectorsMinilm", uselist=False, back_populates="chunk", cascade="all, delete-orphan")
+    vector_gemini = relationship("RagVectorsGemini", uselist=False, back_populates="chunk", cascade="all, delete-orphan")
 
 
 
