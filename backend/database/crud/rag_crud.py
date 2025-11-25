@@ -17,6 +17,20 @@ def get_all_sources(db: Session) -> List[RagSources]:
     """
     return db.query(RagSources).all()
 
+def delete_rag_source(db: Session, source_identifier: str) :
+    """
+    source_identifier를 기준으로 RAG 소스와 관련된 모든 데이터를 삭제합니다.
+    SQLAlchemy ORM의 bulk delete 기능을 사용합니다.
+    """
+    # 1. 삭제할 RagSources 객체를 조회합니다.
+    #    .delete()는 조회된 결과에 대해 DELETE 구문을 실행합니다.
+    #    synchronize_session=False는 세션과 동기화하는 오버헤드를 줄여 성능을 향상시킵니다.
+    deleted_rows = db.query(RagSources).filter(RagSources.source_identifier == source_identifier).delete()
+    db.flush()
+    print(f"'{source_identifier}' 소스를 삭제했습니다. (영향 받은 row: {deleted_rows})")
+    return deleted_rows
+
+
 def bulk_insert_chunks_and_vectors(
     db: Session,
     source: RagSources,
@@ -88,13 +102,15 @@ def bulk_insert_chunks_and_vectors(
 def search_similar_chunks(
     db: Session,
     user_id: str,  
+    query_text:str,
     query_vector: List[float],
     model_type: str = "minilm",
     top_k: int = 20,
-    similarity_threshold: float = 0.8
+    similarity_threshold: float = 0.7
 ) -> List[Dict]:
     """
     주어진 쿼리 벡터와 가장 유사한 문서 청크를 DB에서 검색합니다.
+    (개선) 하이브리드 검색: 벡터 유사도와 키워드(LIKE) 검색을 결합하여 문서 청크를 검색합니다
 
     Args:
         db (Session): SQLAlchemy DB 세션.
@@ -121,15 +137,40 @@ def search_similar_chunks(
     
     query_vector_str = str(query_vector)
 
+    # 키워드 like 쿼리 조합
+    keywords = [ keyword.strip() for keyword in query_text.strip().split(',') if keyword.strip() ]
+
+    execute_parmas = {
+            "query_vector": query_vector_str,
+            "top_k": top_k,
+            "similarity_threshold": similarity_threshold,
+            "user_id": user_id
+        }
+
+
+    like_keyword_query = []
+    for i, keyword in enumerate(keywords):
+        params_key = f'like_{i}'
+        execute_parmas[params_key] = f'%{keyword}%'
+        like_keyword_query.append ( f' chunks.chunk_text like :{params_key} ')
+        # 예시 [ 'chunks.chunk_text like :like_1', 'chunks.chunk_text like :like_2', 'chunks.chunk_text like :like_3' ]
+
+
+    full_like_query_injection = ' OR '.join(like_keyword_query)
+    # 예시 'chunks.chunk_text like :like_1 OR 'chunks.chunk_text like :like_2 OR 'chunks.chunk_text like :like_3 
+
     # --- 최종 SQL 쿼리 ---
     query = text(f"""
         WITH ranked_chunks AS (
             SELECT
-                chunks.chunk_text,
+                chunks.chunk_id,
+                 chunks.chunk_text,
                 chunks.chunk_metadata,
                 sources.source_identifier,
+                -- 1) 유사도 계산 점수  
                 1 - (vectors.embedding_vector <=> :query_vector) AS similarity,
-                RANK() OVER (ORDER BY vectors.embedding_vector <=> :query_vector) as rnk
+                RANK() OVER (ORDER BY vectors.embedding_vector <=> :query_vector) as rnk,
+                case when ( {full_like_query_injection} ) THEN 1 ELSE 0 END AS keyword_match
             FROM
                  llm_agent_rag.{vector_table.__tablename__} AS vectors
             JOIN
@@ -151,17 +192,20 @@ def search_similar_chunks(
                 )
         )
         SELECT
+            chunk_id,
             chunk_text,
             similarity,
             chunk_metadata,
-            source_identifier
+            source_identifier,
+            (0.6 * similarity) + (0.4 * keyword_match) AS final_score
         FROM
             ranked_chunks
         WHERE
             similarity >= :similarity_threshold
-            AND rnk <= :top_k
+            OR keyword_match = 1
         ORDER BY
-            similarity DESC;
+            final_score DESC, similarity DESC
+        LIMIT :top_k;
     """)
 
     top_k = min(top_k,20)
@@ -169,12 +213,7 @@ def search_similar_chunks(
     # 쿼리 실행 시 user_id 파라미터를 추가합니다.
     results = db.execute(
         query,
-        {
-            "query_vector": query_vector_str,
-            "top_k": top_k,
-            "similarity_threshold": similarity_threshold,
-            "user_id": user_id  
-        }
+        execute_parmas
     ).fetchall()
 
     response = []
