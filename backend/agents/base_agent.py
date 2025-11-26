@@ -13,12 +13,12 @@ class BaseAgent(ABC):
         self.role_prompt = role_prompt
 
     @abstractmethod
-    def handle(self, db, session_id, user_id, model, message) -> tuple[str,str]:
+    def handle(self, db, chat_id, user_id, model, message) -> tuple[str,str]:
         """각 에이전트별 요청 처리 로직"""
         print(f'======'*20)
         print(f""" 
     - db: {db} 
-    - sesseion_id: {session_id} 
+    - sesseion_id: {chat_id} 
     - user_id: {user_id} 
     - model: {model} 
     - message: {message} 
@@ -26,20 +26,20 @@ class BaseAgent(ABC):
         print(f'======'*20)
         pass
 
-    def _create_chat_seesion(self, db:Session, user_id:str, agent_id:str, model_id:str) -> str:
-        new_seesion = chat_crud.create_chat_session(db=db, user_id=user_id, agent_id=agent_id, model_id=model_id)
-        return new_seesion.session_id
+    def _create_chat_seesion(self, db:Session, user_id:str, agent_id:str) -> str:
+        new_seesion = chat_crud.create_chat_session(db=db, user_id=user_id, agent_id=agent_id)
+        return new_seesion.chat_id
     
-    def _get_chat_history(self,db:Session, session_id:str) -> list:
-        chat_history = chat_crud.get_chat_history(db=db, session_id=session_id)
+    def _get_chat_history(self,db:Session, chat_id:str) -> list:
+        chat_history = chat_crud.get_chat_history(db=db, chat_id=chat_id)
         return chat_history
     
-    def _save_massgae_history(self,db:Session, session_id:str, role:str, content:str, sequence:int) -> None:
-        chat_crud.save_message(db=db, session_id=session_id, role=role, content=content, sequence=sequence)
+    def _save_massgae_history(self,db:Session, chat_id:str, model_id: str, role:str, content:str, sequence:int) -> None:
+        chat_crud.save_message(db=db, chat_id=chat_id, role=role, content=content, sequence=sequence,model_id=model_id)
         return None
     
-    def _get_last_sequence(self,db:Session, session_id:str) -> int:
-        last_sequence = chat_crud.get_last_sequence(db=db, session_id=session_id)
+    def _get_last_sequence(self,db:Session, chat_id:str) -> int:
+        last_sequence = chat_crud.get_last_sequence(db=db, chat_id=chat_id)
         return last_sequence
     
     

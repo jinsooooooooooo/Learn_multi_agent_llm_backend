@@ -45,7 +45,7 @@ def test_chat_e2e_scenario_without_agent_mock(mocker):
     response_data = response.json()
     assert response_data["reply"] == "실제 Agent가 호출한 LLM의 가짜 응답"
     # 실제 Agent의 세션 생성 로직이 잘 동작했는지 확인
-    assert response_data["session_id"] == "real-e2e-session-id"
+    assert response_data["chat_id"] == "real-e2e-session-id"
 
     # Agent가 _llm_reply를 올바른 인자들로 호출했는지 검증
     mock_llm_reply.assert_called_once()

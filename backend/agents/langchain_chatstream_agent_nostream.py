@@ -31,7 +31,7 @@ class LangchainChatStreamAgent(BaseAgent):
         """스트리밍 방식으로 응답 전송 (generator)"""
 
         redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
-        history = RedisChatMessageHistory(session_id=f"user:{self.user_id}", url=redis_url, ttl=3600)
+        history = RedisChatMessageHistory(chat_id=f"user:{self.user_id}", url=redis_url, ttl=3600)
         memory = ConversationBufferMemory(chat_memory=history, return_messages=True)
 
         def event_stream():

@@ -13,20 +13,20 @@ class MeetingAgent(BaseAgent):
             ),
         )
 
-    def handle(self, db, session_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
+    def handle(self, db, chat_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
         """회의실 업무 처리 """
 
         # 1. seesion_id가 없는 첫 대화인 경우 대화 세션 새로 생성한다.
-        if session_id is None or session_id.strip() == "":
-            # session_id = str(uuid.uuid4()) 
+        if chat_id is None or chat_id.strip() == "":
+            # chat_id = str(uuid.uuid4()) 
             new_seesion = chat_crud.create_chat_session(db,user_id,self.name,model)
-            session_id = str(new_seesion.session_id)
+            chat_id = str(new_seesion.chat_id)
             
 
         # 2. 이 대화 세션의 히스토리를 조회한다 (llm 질의에 lanchain을 구현하기 위함)
         chat_history = []
         last_sequence = 0
-        fetch_historys = chat_crud.get_chat_history(db, session_id) 
+        fetch_historys = chat_crud.get_chat_history(db, chat_id) 
         for history in fetch_historys:
             chat_history.append( { "role":history.role , "content": history.content } )
             last_sequence = history.sequence
@@ -58,10 +58,10 @@ class MeetingAgent(BaseAgent):
 
         # 4. llm 질의하기 
         last_sequence += 1
-        chat_crud.save_message(db,session_id,"user",message,last_sequence)
+        chat_crud.save_message(db,chat_id,"user",message,last_sequence)
         llm_reply = self._llm_reply(model, message, chat_history)
         last_sequence += 1
-        chat_crud.save_message(db,session_id,"assistant",llm_reply,last_sequence)
+        chat_crud.save_message(db,chat_id,"assistant",llm_reply,last_sequence)
 
         # optional] 답변에 회의실 예약 여부 감지
         if "###예약:" in llm_reply:
@@ -80,4 +80,4 @@ class MeetingAgent(BaseAgent):
         # 트랜잭션을 최종적으로 DB에 확정(commit)합니다.
         db.commit()    
         
-        return llm_reply, session_id
+        return llm_reply, chat_id

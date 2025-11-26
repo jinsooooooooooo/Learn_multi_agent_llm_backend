@@ -29,16 +29,16 @@ def get_db():
     finally:
         db.close() # 3. API 함수 처리가 끝나면 (성공/실패 무관) 반드시 세션을 닫음
 
-# RAG database 에닞ㄴ 연결 추가 
-rag_engine = create_engine(settings.RAG_DATABASE_URL)
-RagSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=rag_engine)
-RagOrmBase = declarative_base()
+# Rag db는 llm_agnet_rag 연결 추가 
+# rag_engine = create_engine(settings.RAG_DATABASE_URL)
+# RagSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=rag_engine)
+# RagOrmBase = declarative_base()
 
-# ----- RAG DB 세션을 얻기 위한 get_rag_db 함수 -----
-def get_rag_db():
-    db = RagSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# # ----- RAG DB 세션을 얻기 위한 get_rag_db 함수 -----
+# def get_rag_db():
+#     db = RagSessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
     

@@ -141,7 +141,7 @@ def search_similar_chunks(
     keywords = [ keyword.strip() for keyword in query_text.strip().split(',') if keyword.strip() ]
 
     execute_parmas = {
-            "query_vector": query_vector_str,
+            # query_vector": query_vector_str,
             "top_k": top_k,
             "similarity_threshold": similarity_threshold,
             "user_id": user_id
@@ -168,8 +168,8 @@ def search_similar_chunks(
                 chunks.chunk_metadata,
                 sources.source_identifier,
                 -- 1) 유사도 계산 점수  
-                1 - (vectors.embedding_vector <=> :query_vector) AS similarity,
-                RANK() OVER (ORDER BY vectors.embedding_vector <=> :query_vector) as rnk,
+                1 - (vectors.embedding_vector <=> '{query_vector_str}' ) AS similarity,
+                RANK() OVER (ORDER BY vectors.embedding_vector <=> '{query_vector_str}' ) as rnk,
                 case when ( {full_like_query_injection} ) THEN 1 ELSE 0 END AS keyword_match
             FROM
                  llm_agent_rag.{vector_table.__tablename__} AS vectors

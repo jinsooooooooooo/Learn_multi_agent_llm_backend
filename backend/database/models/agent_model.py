@@ -21,15 +21,15 @@ class AgentInfo(OrmBase):
     __table_args__ = {'schema': 'llm_agent'}
 
     agent_id = Column(String(50), primary_key=True)
-    name = Column(String(100), nullable=False)
+    agent_name = Column(String(100), nullable=False)
     role_description = Column(Text, nullable=False)
     default_tool_chain = Column(Text)
     is_active = Column(Boolean, default=True)
     mode = Column(String(20), nullable=False, default='chat')
 
 
-class ModelAgentPromptDef(OrmBase):
-    __tablename__ = 'model_agent_prompt_def'
+class SystemPromptDef(OrmBase):
+    __tablename__ = 'system_prompt_def'
     __table_args__ = {'schema': 'llm_agent'}
 
     config_id = Column(UUID(as_uuid=True), primary_key=True)
@@ -40,12 +40,12 @@ class ModelAgentPromptDef(OrmBase):
 
     agent = relationship(
         "AgentInfo",
-        primaryjoin = "and_(ModelAgentPromptDef.agent_id == AgentInfo.agent_id, AgentInfo.is_active == True )"
+        primaryjoin = "and_(SystemPromptDef.agent_id == AgentInfo.agent_id, AgentInfo.is_active == True )"
     )
 
     model = relationship(
         "LlmModel",
-        primaryjoin="and_(ModelAgentPromptDef.model_id == LlmModel.model_id, LlmModel.is_active == True )"
+        primaryjoin="and_(SystemPromptDef.model_id == LlmModel.model_id, LlmModel.is_active == True )"
     )
     
 

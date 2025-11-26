@@ -39,7 +39,7 @@ class LangchainChatStreamAgent(BaseAgent):
         q = Queue()
 
         redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
-        history = RedisChatMessageHistory(session_id=f"user:{self.user_id}", url=redis_url, ttl=3600)
+        history = RedisChatMessageHistory(chat_id=f"user:{self.user_id}", url=redis_url, ttl=3600)
         memory = ConversationBufferMemory(chat_memory=history, return_messages=True)
 
         # 백그라운드 스레드에서 실행될 작업

@@ -17,7 +17,7 @@ def get_conversation_chain(user_id: str):
 
     # 2️⃣ Redis에 대화 이력 관리 (최신 10개 자동 유지)
     history = RedisChatMessageHistory(
-        session_id=f"user:{user_id}",
+        chat_id=f"user:{user_id}",
         url=redis_url,
         ttl=3600  # 1시간 TTL
     )

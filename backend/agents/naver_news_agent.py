@@ -30,21 +30,21 @@ class NaverNewsAgent(BaseAgent):
 
         print(
             f'[naver_news_agent.py]\n'
-            f'  - session_id:   {payload.session_id}\n'
+            f'  - chat_id:   {payload.chat_id}\n'
             f'  - user_id   :   {payload.user_id}\n'
             f'  - model     :   {payload.model}\n'
             f'  - keywords  :   {payload.keywords}\n'
             f'  - message   :   {payload.message}\n'
         )
 
-        session_id = payload.session_id
+        chat_id = payload.chat_id
         keywords = payload.keywords
         model = payload.model
         message = payload.message
 
-        # 1. session_id 생성
-        if session_id is None or session_id.strip() =="":
-            session_id = uuid.uuid4()
+        # 1. chat_id 생성
+        if chat_id is None or chat_id.strip() =="":
+            chat_id = uuid.uuid4()
 
         # 2. load seesion history
         chat_history = []
@@ -76,4 +76,4 @@ class NaverNewsAgent(BaseAgent):
         llm_reply = self._llm_reply(model, message, chat_history, final_prompt)
         
         
-        return total_articles, llm_reply, session_id
+        return total_articles, llm_reply, chat_id

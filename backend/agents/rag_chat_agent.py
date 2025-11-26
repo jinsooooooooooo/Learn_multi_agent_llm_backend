@@ -23,7 +23,7 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
            
 
 
-    def handle(self, db: Session, rag_db: Session, session_id:str, user_id:str, model:str, message:str) -> tuple[str,str]:
+    def handle(self, db: Session, chat_id:str, user_id:str, model:str, message:str) -> tuple[str,str]:
         
         try:
             
@@ -31,11 +31,11 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
             chat_history = []
 
             # seesion_id 가 없으면 새로운 채팅 세션을 구현
-            if session_id == None or session_id.strip() == "":
-                session_id = self._create_chat_seesion(db=db, user_id=user_id, agent_id=self.name, model_id=model)
+            if chat_id == None or chat_id.strip() == "":
+                chat_id = self._create_chat_seesion(db=db, user_id=user_id, agent_id=self.name)
             # seesion_id가 있으면 기존 채팅의 히스토리와 마지막 sequence를 가져온다.
             else:
-                chat_history_orm = self._get_chat_history(db=db, session_id=session_id)
+                chat_history_orm = self._get_chat_history(db=db, chat_id=chat_id)
                 for history in chat_history_orm:
                     chat_history.append({
                         'role': history.role,
@@ -46,7 +46,7 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
 
             # user_massage 저장
             user_sequence = last_sequence + 1
-            self._save_massgae_history(db=db, session_id=session_id, role='user', content=message, sequence=user_sequence)
+            self._save_massgae_history(db=db, chat_id=chat_id, model_id=model, role='user', content=message, sequence=user_sequence)
             
             # prompot 구성하기 위한
             # --- 1단계: RAG 검색어 생성을 위한 프롬프트 구성 ---
@@ -70,7 +70,7 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
 
 
             # --- 3단계: LLM이 생성한 RAG 질의 문장으로  Vector DB 유사한 맥락 가져오기
-            rag_document_context = self._rag_documents_serch(rag_db, user_id, reply_for_rag, 0.5)
+            rag_document_context = self._rag_documents_serch(db, user_id, reply_for_rag, 0.5)
 
 
 
@@ -88,20 +88,19 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
             
             # assistant 메세지 저장 
             assistant_sequence = user_sequence + 1
-            self._save_massgae_history(db=db, session_id=session_id, role='assistant', content=llm_reply, sequence=assistant_sequence)
+            self._save_massgae_history(db=db, chat_id=chat_id, model_id=model, role='assistant', content=llm_reply, sequence=assistant_sequence)
             
             
             # db 변경사항 commit;
             db.commit()
 
             # 최종 사용자에게 보내지는 답변과 seesion_id 회신
-            return [llm_reply,session_id]    
+            return [llm_reply,chat_id]    
         
         except Exception as e:
             print(f"RAG Agent 처리 중 에러 발생: {e}")
             db.rollback() # 에러 발생 시 모든 변경사항을 되돌립니다.
             raise e # 에러를 상위로 전파하여 서버 로그에 남깁니다.
-        # rag_db는 읽기만 하므로 commit이나 rollback이 필요 없습니다.
             
 
        
@@ -109,7 +108,7 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
    
 
     # ----- 입력된 메세지(질의)와 유사한 RAG 데이터 찾기 
-    def _rag_documents_serch(self, rag_db:Session, user_id:str, query_text:str, similarity_threshold: float = 0.5 ) -> str:
+    def _rag_documents_serch(self, db:Session, user_id:str, query_text:str, similarity_threshold: float = 0.5 ) -> str:
         
         # 문서 임베딩에 사용했던 것과 "반드시 동일한" 모델을 사용해야 합니다.
         # get_minilm_embeddings_batch는 텍스트 '리스트'를 인자로 받으므로,query_text를 리스트에 담아 전달합니다.
@@ -117,7 +116,7 @@ RAG 기반의 문맥이 제공될 테니 이를 참고하여 답변해주세요.
         query_vector = get_minilm_embeddings_batch([query_text])[0]
         
         retrieved_chunks = rag_crud.search_similar_chunks(
-            db=rag_db,
+            db=db,
             user_id=user_id,
             query_text=query_text,
             query_vector=query_vector,

@@ -10,11 +10,11 @@ from backend.database.models import agent_model, chat_model, rag_model
 print("Creating tables...")
 
 # 3. OrmBase.metadata.create_all(bind=engine)
-# OrmBase에 연결된 모든 모델(AgentInfo, ChatSession 등)을 찾아서,
+# OrmBase에 연결된 모든 모델(AgentInfo, Chats 등)을 찾아서,
 # 'engine'에 연결된 데이터베이스에 테이블을 생성합니다.
 # 이미 테이블이 존재하면, 아무 작업도 하지 않아 안전합니다.
 OrmBase.metadata.create_all(bind=engine)
 
-RagOrmBase.metadata.create_all(bind=rag_engine)
+# RagOrmBase.metadata.create_all(bind=rag_engine)
 
 print("Tables created successfully.")

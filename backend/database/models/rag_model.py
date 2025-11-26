@@ -7,11 +7,11 @@ import uuid
 
 # 중요! RAG 모델들은 새로운 RAG DB에 매핑되므로,
 # 별도의 Base를 사용하거나 기존 Base를 사용하되 engine 바인딩을 명확히 해야 합니다.
-# 여기서는 단순화를 위해 기존 RagOrmBase를 함께 사용합니다.
-from backend.database.db_manager import RagOrmBase
+# 여기서는 단순화를 위해 기존 OrmBase를 함께 사용합니다.
+from backend.database.db_manager import OrmBase
 
 # --- 공통 메타데이터 테이블 ---
-class RagSources(RagOrmBase):
+class RagSources(OrmBase):
     __tablename__ = 'rag_sources'
     __table_args__ = {'schema': 'llm_agent_rag'}
 
@@ -34,7 +34,7 @@ class RagSources(RagOrmBase):
     )
 
 # --- 공통 청크 정보 (문서 ID, 텍스트, 메타데이터 등) ---
-class RagDocumentChunks(RagOrmBase):
+class RagDocumentChunks(OrmBase):
     __tablename__ = 'rag_document_chunks'
     __table_args__ = {'schema': 'llm_agent_rag'}
 
@@ -53,7 +53,7 @@ class RagDocumentChunks(RagOrmBase):
 
 
 # --- 모델별 벡터 테이블 ---
-class RagVectorsMinilm(RagOrmBase):
+class RagVectorsMinilm(OrmBase):
     __tablename__ = 'rag_vectors_minilm'
     __table_args__ = {'schema': 'llm_agent_rag'}
 
@@ -70,7 +70,7 @@ class RagVectorsMinilm(RagOrmBase):
     )
     
 
-class RagVectorsGemini(RagOrmBase):
+class RagVectorsGemini(OrmBase):
     __tablename__ = 'rag_vectors_gemini'
     __table_args__ = {'schema': 'llm_agent_rag'}
 

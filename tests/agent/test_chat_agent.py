@@ -15,15 +15,15 @@ def test_handle_new_session(chat_agent, mocker):
 
     # chat_crud 의존성 Mocking
     mock_session = MagicMock()
-    mock_session.session_id = 'new-mock-uuid'
+    mock_session.chat_id = 'new-mock-uuid'
     mock_create_session = mocker.patch('backend.agents.chat_agent.chat_crud.create_chat_session', return_value=mock_session)
     mocker.patch('backend.agents.chat_agent.chat_crud.get_last_sequence', return_value=0)
     mock_save_message = mocker.patch('backend.agents.chat_agent.chat_crud.save_message')
 
     # 실행 (Act)
-    reply, session_id = chat_agent.handle(
+    reply, chat_id = chat_agent.handle(
         db=mock_db_session,
-        session_id=None,
+        chat_id=None,
         user_id="test_user",
         model="gpt-4o-mini",
         message="안녕하세요"
@@ -31,7 +31,7 @@ def test_handle_new_session(chat_agent, mocker):
 
     # 단언 (Assert)
     assert reply == "LLM의 가짜 응답"
-    assert session_id == 'new-mock-uuid'
+    assert chat_id == 'new-mock-uuid'
     
     # 올바른 함수들이 올바른 인자들로 호출되었는지 검증
     mock_create_session.assert_called_once_with(db=mock_db_session, user_id="test_user", agent_id="ChatAgent", model_id="gpt-4o-mini")
@@ -54,9 +54,9 @@ def test_handle_existing_session(chat_agent, mocker):
     mocker.patch('backend.agents.chat_agent.chat_crud.save_message')
 
     # 실행 (Act)
-    reply, session_id = chat_agent.handle(
+    reply, chat_id = chat_agent.handle(
         db=mock_db_session,
-        session_id="existing-session-123",
+        chat_id="existing-session-123",
         user_id="test_user",
         model="gpt-4o-mini",
         message="제 이름이 뭔가요?"
@@ -64,9 +64,9 @@ def test_handle_existing_session(chat_agent, mocker):
 
     # 단언 (Assert)
     assert reply == "LLM의 두 번째 가짜 응답"
-    assert session_id == "existing-session-123"
+    assert chat_id == "existing-session-123"
 
     # 올바른 함수들이 올바른 인자들로 호출되었는지 검증
-    mock_get_history.assert_called_once_with(db=mock_db_session, session_id="existing-session-123")
+    mock_get_history.assert_called_once_with(db=mock_db_session, chat_id="existing-session-123")
     expected_history = [{"role": "user", "content": "이전 질문"}]
     mock_llm_reply.assert_called_once_with(model="gpt-4o-mini", message="제 이름이 뭔가요?", chat_history=expected_history)

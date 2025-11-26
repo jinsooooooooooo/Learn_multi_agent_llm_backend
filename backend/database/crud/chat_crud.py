@@ -4,12 +4,12 @@ from sqlalchemy.orm import Session
 import uuid
 
 # 우리가 6단계에서 만든 모델 클래스들을 import 합니다.
-from backend.database.models.chat_model import ChatSession, SessionMessage
+from backend.database.models.chat_model import Chats, Messages
 from backend.database.models.agent_model import LlmModel
 
 # ----------------------------------------------- 
 # ------- Chat Session 대하 생성 (첫 대화) ---------- 
-def create_chat_session(db: Session, user_id: str, agent_id: str, model_id: str) -> ChatSession:
+def create_chat_session(db: Session, user_id: str, agent_id: str) -> Chats:
     """
     새로운 채팅 세션을 생성하고 DB에 저장합니다.
     - Args:
@@ -18,20 +18,19 @@ def create_chat_session(db: Session, user_id: str, agent_id: str, model_id: str)
         agent_id (str): 사용된 에이전트 ID.
         model_id (str): 사용된 모델 ID.
     - Returns:
-        ChatSession: 새로 생성된 ChatSession 객체.
+        Chats: 새로 생성된 Chats 객체.
     """
     # 1. 모델 클래스를 사용하여 파이썬 객체를 만듭니다.
-    #    session_id는 DB에서 자동으로 생성되므로 값을 주지 않습니다.
-    new_session = ChatSession(
+    #    chat_id는 DB에서 자동으로 생성되므로 값을 주지 않습니다.
+    new_session = Chats(
         user_id=user_id,
-        agent_id=agent_id,
-        model_id=model_id
+        agent_id=agent_id
     )
     # 2. 이 객체를 세션에 '추가(add)'합니다. 아직 DB에 저장된 것은 아닙니다.
     db.add(new_session)
     # 3. 세션의 변경사항을 DB에 '커밋(commit)'하여 최종 저장합니다.
     # db.commit()
-    # 4. DB에 저장되면서 할당된 session_id 등을 포함한 객체를 '새로고침(refresh)'하여 반환합니다.
+    # 4. DB에 저장되면서 할당된 chat_id 등을 포함한 객체를 '새로고침(refresh)'하여 반환합니다.
     # db.refresh(new_session)
     db.flush()
     return new_session
@@ -39,35 +38,35 @@ def create_chat_session(db: Session, user_id: str, agent_id: str, model_id: str)
 
 # -----------------------------------------------
 # ------- Chat Session 단일 조회 ---------- 
-def get_chat_session(db: Session, session_id: uuid.UUID) -> ChatSession | None:
+def get_chat_session(db: Session, chat_id: uuid.UUID) -> Chats | None:
     """
-    주어진 session_id로 채팅 세션을 조회합니다.
+    주어진 chat_id로 채팅 세션을 조회합니다.
     """
     # db.query(모델)로 조회 시작. .filter()로 조건 지정. .first()로 첫 번째 결과만 가져옴.
     # 결과가 없으면 None을 반환합니다.
-    return db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+    return db.query(Chats).filter(Chats.chat_id == chat_id).first()
 
 
 # -----------------------------------------------
 # ------- Chat Session 히스토리 불러오기 ---------- 
-def get_chat_history(db: Session, session_id: uuid.UUID) -> list[SessionMessage]:
+def get_chat_history(db: Session, chat_id: uuid.UUID) -> list[Messages]:
     """
-    주어진 session_id에 속한 모든 메시지를 시간 순서대로 조회합니다.
+    주어진 chat_id에 속한 모든 메시지를 시간 순서대로 조회합니다.
     - Args:
         - db: db 연결정보
-        - session_id: 조회하고자 하는 seesion_id
+        - chat_id: 조회하고자 하는 seesion_id
     - Returns:
-        - lst[SessionMessage]: SeesionMassge(OrmBase) 객채의 리스트 반환
+        - lst[Messages]: SeesionMassge(OrmBase) 객채의 리스트 반환
     """
-    return db.query(SessionMessage)\
-             .filter(SessionMessage.session_id == session_id)\
-             .order_by(SessionMessage.sequence.asc())\
+    return db.query(Messages)\
+             .filter(Messages.chat_id == chat_id)\
+             .order_by(Messages.sequence.asc())\
              .all()
 
 
 # -----------------------------------------------
 # ------- message 히스토리 저장하기 ---------- 
-def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, sequence: int ) -> SessionMessage:
+def save_message(db: Session, chat_id: uuid.UUID, role: str, content: str, sequence: int , model_id:str) -> Messages:
     """
     새로운 채팅 메시지를 생성하고 DB에 저장합니다.
     - Args:
@@ -75,8 +74,10 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
         - seesion_id:
         - role:
         - content:
+        - sequence:
+        - model_id:
     - Returns:
-        - SessionMessage: 저장된 메세지 반환
+        - Messages: 저장된 메세지 반환
     """
     # 메세지 이력을 저장 할 때는 같은 seesion 안에서 seq를 순차적으로 증가시켜야 하므로 단순한 add() 만으로는 구현 불가
 
@@ -84,12 +85,12 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
     # INSERT ... SELECT 구문을 직접 작성
     # query = text("""
     #     insert into llm_agent.session_message
-    #     ( session_id, "role", "content", "sequence" )
+    #     ( chat_id, "role", "content", "sequence" )
     #     VALUES (
-    #         :session_id,
+    #         :chat_id,
     #         :role,
     #         :content,
-    #         (SELECT COALESCE(MAX(sequence), 0) + 1 FROM llm_agent.session_message WHERE session_id = :session_id)
+    #         (SELECT COALESCE(MAX(sequence), 0) + 1 FROM llm_agent.session_message WHERE chat_id = :chat_id)
     #     )
     #     RETURNING *; -- INSERT된 전체 레코드를 반환            
     # """)
@@ -97,13 +98,14 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
     # # db.execute()는 CursorResult 객체를 반환합니다.
     # result_cursor = db.execute(
     #     query, 
-    #     {"session_id": session_id, "role": role, "content": content}
+    #     {"chat_id": chat_id, "role": role, "content": content}
     # ).fetchone()
 
     # return result_cursor
 
-    new_message = SessionMessage(
-        session_id=session_id,
+    new_message = Messages(
+        chat_id=chat_id,
+        model_id=model_id,
         role=role,
         content=content,
         sequence=sequence
@@ -119,12 +121,12 @@ def save_message(db: Session, session_id: uuid.UUID, role: str, content: str, se
 
 # -----------------------------------------------
 # ------- message 히스토리 저장하기 ---------- 
-# SQL: SELECT coalesce( max(sequence),0) FROM llm_agent.session_message WHERE session_id = :session_id
-def get_last_sequence(db: Session, session_id: uuid.UUID) -> int :
+# SQL: SELECT coalesce( max(sequence),0) FROM llm_agent.session_message WHERE chat_id = :chat_id
+def get_last_sequence(db: Session, chat_id: uuid.UUID) -> int :
     """주어진 세션의 마지막 시퀀스 번호를 조회합니다."""
     # 이 함수는 오직 '조회' 책임만 가집니다.
-    return db.query(func.coalesce(func.max(SessionMessage.sequence),0))\
-             .filter(SessionMessage.session_id == session_id)\
+    return db.query(func.coalesce(func.max(Messages.sequence),0))\
+             .filter(Messages.chat_id == chat_id)\
              .scalar()
 
 

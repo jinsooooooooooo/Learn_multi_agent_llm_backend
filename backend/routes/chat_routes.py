@@ -15,7 +15,7 @@ class ChatRequest(BaseModel):
     llm Chat을 보내기이한 메세지 전송
     """
     # agent_id: str = "ChatAgent"
-    session_id: Optional[str] = None
+    chat_id: Optional[str] = None
     user_id: str = 'guest'
     model: str = 'gpt-4o-mini'
     message: str # 사용자의 입력 메시지 (필수 문자열 필드)
@@ -31,9 +31,9 @@ async def chat(data: ChatRequest, db: Session = Depends(get_db)):
     # data = await request.json()
     # user_input = data.get("message", "")
     # user_input = data.message
-    response_text, session_id = agent.handle(  
+    response_text, chat_id = agent.handle(  
         db=db,
-        session_id=data.session_id, 
+        chat_id=data.chat_id, 
         user_id=data.user_id , 
         model=data.model, 
         message=data.message 
@@ -42,4 +42,4 @@ async def chat(data: ChatRequest, db: Session = Depends(get_db)):
     return {
             "agent": agent.name,
             "reply": response_text, 
-            "session_id":session_id}
+            "chat_id":chat_id}

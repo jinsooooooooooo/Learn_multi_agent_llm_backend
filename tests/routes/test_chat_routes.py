@@ -10,8 +10,8 @@ client = TestClient(app)
 
 def test_chat_first_message_success(mocker):
     """
-    /api/chat 엔드포인트에 첫 번째 메시지를 보냈을 때 (session_id 없이),
-    성공적으로 응답(200 OK)하고 새로운 session_id를 포함하는지 테스트합니다.
+    /api/chat 엔드포인트에 첫 번째 메시지를 보냈을 때 (chat_id 없이),
+    성공적으로 응답(200 OK)하고 새로운 chat_id를 포함하는지 테스트합니다.
     """
     # 준비 (Arrange)
     # Agent의 handle 메소드가 실제 LLM을 호출하지 않도록 Mocking 합니다.
@@ -23,7 +23,7 @@ def test_chat_first_message_success(mocker):
         return_value=("안녕하세요, 첫 대화입니다.", "new-session-id-123")
     )
 
-    # 테스트할 요청 본문 (첫 대화이므로 session_id가 없음)
+    # 테스트할 요청 본문 (첫 대화이므로 chat_id가 없음)
     request_payload = {
         "user_id": "test_user",
         "model": "gpt-4o-mini",
@@ -44,4 +44,4 @@ def test_chat_first_message_success(mocker):
     # 3. 응답 본문의 내용이 우리가 예상한 값과 일치하는지 확인합니다.
     assert response_data["agent"] == "ChatAgent"
     assert response_data["reply"] == "안녕하세요, 첫 대화입니다."
-    assert response_data["session_id"] == "new-session-id-123"
+    assert response_data["chat_id"] == "new-session-id-123"
