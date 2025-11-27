@@ -1,6 +1,6 @@
 # backend\agent\base_agent.py
 from abc import ABC, abstractmethod
-from backend.core.llm_core import call_llm
+from backend.core.llm_core import call_llm, call_llm_stream
 from backend.database.crud import chat_crud
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ class BaseAgent(ABC):
         """)
         print(f'======'*20)
         pass
+
 
     def _create_chat_seesion(self, db:Session, user_id:str, agent_id:str) -> str:
         new_seesion = chat_crud.create_chat_session(db=db, user_id=user_id, agent_id=agent_id)
@@ -64,11 +65,5 @@ class BaseAgent(ABC):
             chat_history=chat_history
             # temperature는 llm_core의 기본값을 사용하므로 명시하지 않아도 됩니다.
         )
-    
-
-
-
-
-
 
 

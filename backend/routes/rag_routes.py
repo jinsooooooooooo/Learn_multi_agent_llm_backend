@@ -2,6 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 # 1. RAG DB 세션을 가져오는 의존성 함수를 import 합니다.
@@ -30,6 +31,28 @@ class RagChatRequest(BaseModel):
     message: str # 사용자의 입력 메시지 (필수 문자열 필드)
 
 
+
+
+@router.post("/rag/chat/stream", summary="RAG 기반 채팅(Ncp object Storage 파일 참고")
+async def rag_chat_stream( 
+    payload: RagChatRequest,
+    db: Session = Depends(get_db),
+):
+    # StreamingResponse에 에이전트의 비동기 제너레이터 함수를 그대로 전달합니다.
+    return StreamingResponse(
+        agent._handle_stream(
+            db=db,
+            chat_id=payload.chat_id,
+            user_id=payload.user_id,
+            model=payload.model,
+            message=payload.message
+        ),
+        media_type="text/event-stream"
+    )
+
+
+
+             
 @router.post("/rag/chat", summary="RAG 기반 채팅(Ncp object Storage 파일 참고))")
 async def rag_chat( 
     payload: RagChatRequest,
@@ -86,3 +109,6 @@ async def refresh_rag_background(
 
     # 5. 클라이언트에게 작업이 시작되었음을 알리는 응답을 즉시 보냅니다.
     return {"message": "RAG data refresh process has been started in the background."}
+
+
+
