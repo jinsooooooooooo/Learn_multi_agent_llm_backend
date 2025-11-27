@@ -20,6 +20,9 @@ from backend.routes.langchain_chatstream_routes import router as langchain_strea
 from backend.routes.stream_sample_routes import router as stream_sample_router
 from backend.routes.models_routes import router as models_router
 from backend.routes.rag_routes import router as rag_router
+from backend.routes.stream_test_routes import router as stream_test_router
+
+
 
 # 로거 설정 (파일 상단에 추가)
 logging.basicConfig(level=logging.INFO, force=True) 
@@ -73,7 +76,7 @@ app.include_router(langchain_stream_router, prefix="/api")
 app.include_router(stream_sample_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(rag_router, prefix="/api")
-
+app.include_router(stream_test_router, prefix="/api")
 
 
 
@@ -91,6 +94,10 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "Welcome to RAG Multi-Agent Backend"}
+
+
+
+
 
 
 # logging 
