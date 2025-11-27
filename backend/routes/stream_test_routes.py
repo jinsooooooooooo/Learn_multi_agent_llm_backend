@@ -1,6 +1,8 @@
+import json
 from fastapi import APIRouter
 router = APIRouter(tags=["RAG Management"])
 from fastapi.responses import StreamingResponse
+
 
 
 # ==========================================================
@@ -20,16 +22,24 @@ async def test_stream() -> AsyncGenerator[str, None]:
         "data: [테스트 1/5] 스트리밍 시작: 첫 번째 청크 전송\n\n",
         "data: [테스트 2/5] 1초 대기 후 두 번째 청크 전송\n\n",
         "data: [테스트 3/5] 2초 대기 후 세 번째 청크 전송\n\n",
-        "data: [테스트 4/5] 1초 대기 후 네 번째 청크 전송\n\n",
+        "data: [테스트 4/5] 2초 대기 후 네 번째 청크 전송\n\n",
         "data: [테스트 5/5] 스트리밍 완료: 마지막 청크 전송\n\n"
     ]
     
-    delays = [0, 1, 2, 1, 0] # 각 청크 전송 전 대기 시간 (초)
+    delays = [0, 1, 2, 2, 1] # 각 청크 전송 전 대기 시간 (초)
 
     for i, phrase in enumerate(phrases):
         await asyncio.sleep(delays[i]) # 비동기적으로 대기 (논블로킹)
         print(f"[TEST PRINT] Yielding: {phrase.strip()}")
-        yield phrase
+        reply = json.dumps(
+            {
+                "type": "text",
+                "text": phrase    
+            }
+            , ensure_ascii=False
+        )
+
+        yield reply + "\n"
 
 @router.post("/test/stream", summary="버퍼링 테스트용 스트림")
 async def test_buffering():

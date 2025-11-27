@@ -124,9 +124,11 @@ async def call_gemini_stream(model, prompt, chat_history, message) -> AsyncGener
 
         async for data in response_stream:
             if data.text:
-                sse_payload = data.text.replace('\n', '\ndata: ')
-                print(f'data: {sse_payload}')
-                yield f"data: {sse_payload}\n\n"
+                # sse_payload = data.text.replace('\n', '\ndata: ')
+                # print(f'data: {sse_payload}')
+                # yield f"data: {sse_payload}\n\n"
+                print(f'data: {data.text}')
+                yield data.text   
     except Exception as e:
         print(f"Gemini 스트리밍 중 오류: {e}")
         yield "Gemini 스트리밍 오류"
