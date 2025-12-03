@@ -9,30 +9,28 @@ class MeetingAgent(BaseAgent):
             name="MeetingAgent",
             role_prompt=(
                 "당신은 회사 내부 회의실 예약을 도와주는 AI 비서입니다. "
-                "사용자 요청에 따라 회의실 목록을 보여주거나 예약을 진행하세요."
+                "사용자 요청에 따라 회의실 목록을 보여주거나 예약을 진행하세요. "
+                "최종 답변은 마크다운을 사용하여 가동성 있게 생성합니다."
             ),
         )
 
     def handle(self, db, chat_id:str , user_id: str, model: str, message: str) -> tuple[str, str]:
         """회의실 업무 처리 """
 
+        last_sequence = 0
+        chat_history = []
         # 1. seesion_id가 없는 첫 대화인 경우 대화 세션 새로 생성한다.
         if chat_id is None or chat_id.strip() == "":
             # chat_id = str(uuid.uuid4()) 
-            new_seesion = chat_crud.create_chat_session(db,user_id,self.name,model)
-            chat_id = str(new_seesion.chat_id)
-            
-
-        # 2. 이 대화 세션의 히스토리를 조회한다 (llm 질의에 lanchain을 구현하기 위함)
-        chat_history = []
-        last_sequence = 0
-        fetch_historys = chat_crud.get_chat_history(db, chat_id) 
-        for history in fetch_historys:
-            chat_history.append( { "role":history.role , "content": history.content } )
-            last_sequence = history.sequence
-
-
-        # 3. model + agent 조합으로 prompt 조합
+            # new_seesion = chat_crud.create_chat_session(db,user_id,self.name,model)
+            chat_id =str(self._create_chat_seesion(db,user_id,self.name))
+        else:
+            fetch_historys = self._get_chat_history(db,chat_id)
+            for history in fetch_historys:
+                chat_history.append( { "role":history.role , "content": history.content } )
+                last_sequence = history.sequence
+                
+        # model + agent 조합으로 prompt 조합
         # get_prompt(model, self.name) from databse
 
         rooms = get_meeting_rooms()
@@ -53,15 +51,15 @@ class MeetingAgent(BaseAgent):
            회의실 이름을 '###취소:<회의실이름>| <시작시간>~<종료시간>' 형태로 제일 마지막에 개행을 두고 출력해주세요.
            <시작시간>과 <종료시간>의 양식은 <HH24:00> 으로 표현해주세요
            예: "A 회의실이 적합합니다. ###취소:A | 12:00~15:00"
-           단, 이미 예약 되어 있는 회의실만 취소 합니다.. 
+           단, 이미 예약 되어 있는 회의실만 취소 합니다..  
         """
 
         # 4. llm 질의하기 
         last_sequence += 1
-        chat_crud.save_message(db,chat_id,"user",message,last_sequence)
+        chat_crud.save_message(db,chat_id,"user",message,last_sequence,model)
         llm_reply = self._llm_reply(model, message, chat_history)
         last_sequence += 1
-        chat_crud.save_message(db,chat_id,"assistant",llm_reply,last_sequence)
+        chat_crud.save_message(db,chat_id,"assistant",llm_reply,last_sequence,model)
 
         # optional] 답변에 회의실 예약 여부 감지
         if "###예약:" in llm_reply:
