@@ -4,7 +4,9 @@ from langchain_classic.memory import ConversationBufferMemory
 from langchain_community.chat_message_histories import RedisChatMessageHistory
 from langchain_openai import ChatOpenAI
 from backend.core.env_loader import REDIS_HOST, REDIS_PORT, REDIS_DB
+from backend.core.config import settings
 
+OPENAI_API_KEY = settings.OPENAI_API_KEY
 
 def get_conversation_chain(user_id: str):
     """
@@ -12,26 +14,26 @@ def get_conversation_chain(user_id: str):
     LangChain 1.x (classic + community) 버전 기준
     """
 
-    # 1️⃣ Redis 연결 URL 구성
+    # 1 Redis 연결 URL 구성
     redis_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 
-    # 2️⃣ Redis에 대화 이력 관리 (최신 10개 자동 유지)
+    # 2 Redis에 대화 이력 관리 (최신 10개 자동 유지)
     history = RedisChatMessageHistory(
-        chat_id=f"user:{user_id}",
+        session_id=f"user:{user_id}",
         url=redis_url,
         ttl=3600  # 1시간 TTL
     )
 
-    # 3️⃣ Memory 구성 — LangChain의 ConversationBufferMemory
+    # 3 Memory 구성 — LangChain의 ConversationBufferMemory
     memory = ConversationBufferMemory(
         chat_memory=history,
         return_messages=True  # 반드시 True로 설정
     )
 
-    # 4️⃣ LLM 초기화 — OpenAI Chat Model 사용
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+    # 4 LLM 초기화 — OpenAI Chat Model 사용
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3,api_key=OPENAI_API_KEY)
 
-    # 5️⃣ LLM + Memory를 결합한 ConversationChain
+    # 5 LLM + Memory를 결합한 ConversationChain
     chain = ConversationChain(
         llm=llm,
         memory=memory,
