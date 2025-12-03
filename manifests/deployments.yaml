@@ -1,0 +1,55 @@
+# /rag_multi_agent_project/manifests/01-deployment.yaml
+
+apiVersion: apps/v1 # 'piVersion' -> 'apiVersion' 오타 수정!
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: llm-app-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-container
+          image: your-harbor-url/llm-project/backend:latest
+          ports:
+            - containerPort: 8000
+          
+          # --- 수정된 부분 1: env 에서는 비-민감 정보만 남깁니다. ---
+          env:
+            - name: APP_ENV
+              value: "prd"
+            - name: APP_NAME
+              value: "[prd] LLM App Backend"
+            - name: DEFAULT_LLM_MODEL
+              value: "gpt-4o-mini"
+            - name: GEMINI_DEFAULT_MODEL
+              value: "gemini-1.5-flash-latest"
+            
+            # NCP Object Storage (비-민감 정보)
+            - name: NCP_REGION
+              value: "kr-standard"
+            - name: NCP_OBJECT_STORAGE_ENDPOINT
+              value: "https://kr.object.ncloudstorage.com"
+            - name: NCP_BUCKET_NAME
+              value: "rag-project-bucket-jinsoo"
+              
+            # Redis (localhost -> 서비스 이름으로 변경!)
+            - name: REDIS_HOST
+              value: "redis-service" 
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_DB
+              value: "0"
+
+          # --- 수정된 부분 2: envFrom 을 추가하여 Secret을 참조합니다. ---
+          envFrom:
+            - secretRef:
+                # 방금 만든 Secret 파일의 metadata.name과 일치해야 합니다.
+                name: backend-secrets

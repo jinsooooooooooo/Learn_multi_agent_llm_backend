@@ -1,0 +1,47 @@
+# /rag_multi_agent_project/manifests/03-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service # 이 Service의 고유한 이름
+  namespace: llm-app-backend
+spec:
+  # type: 이 Service를 어떤 방식으로 노출할지 결정합니다.
+  # ClusterIP: 클러스터 내부에서만 접근 가능한 IP를 할당합니다.
+  #            다른 파드들이 이 서비스에 접근할 때 사용합니다. (기본값)
+  # NodePort: 각 노드(서버)의 특정 포트를 통해 외부에서 접근할 수 있게 합니다. (테스트/개발용)
+  # LoadBalancer: 클라우드 제공사(NCP)의 로드밸런서를 생성하여 외부 인터넷에 서비스를 노출합니다.
+  type: ClusterIP
+
+  # selector: 이 Service가 어떤 파드들에게 요청을 전달할지 선택하는 규칙입니다.
+  # Deployment의 template.metadata.labels와 반드시 일치해야 합니다.
+  selector:
+    app: backend
+
+  # ports: 이 Service가 어떤 포트로 요청을 받고, 파드의 어떤 포트로 전달할지 정의합니다.
+  ports:
+    # - protocol: 사용할 프로토콜 (보통 TCP)
+    - protocol: TCP
+      # port: 이 Service 자체의 포트입니다. 다른 파드들이 이 포트로 접속합니다.
+      port: 80
+      # targetPort: 요청을 최종적으로 전달할 파드(컨테이너)의 포트입니다.
+      #             Deployment의 containerPort와 일치해야 합니다.
+      targetPort: 8000+------------------------------------------------------+
+| Namespace: llm-app-backend ("백엔드 개발팀" 공간)     |
+|                                                      |
+|   +----------------------------------------------+   |
+|   | Service: backend-service ("팀 대표 번호")      |   |
+|   |  (selector: app=backend)                     |   |
+|   |      |                                       |   |
+|   |      +------------+------------+             |   |
+|   |      |            |            |             |   |
+|   |      v            v            v             |   |
+|   |  +----------+ +----------+ +----------+      |   |
+|   |  | Pod 1    | | Pod 2    | | Pod 3    |      |   |
+|   |  | (label:  | | (label:  | | (label:  |      |   |
+|   |  | app=backend)| app=backend)| app=backend)|      |   |
+|   |  +----------+ +----------+ +----------+      |   |
+|   |                                              |   |
+|   +----------------------------------------------+   |
+|                                                      |
++------------------------------------------------------+
