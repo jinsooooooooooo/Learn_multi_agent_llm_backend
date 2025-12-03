@@ -12,6 +12,7 @@ class NaverNewsAgent(BaseAgent):
                 " - 사용자로 부터 뉴스 키워드는 1~3개 까지 입력 받을 수 있습니다. \n"
                 " - 입력된 키워드 별로 Naver API를 통해 뉴스 기사(제목,링크)를 가져와 제공 해줄 것 입니다. \n"
                 " - 제공된 키워드 링크에 찾아가 기사 내용을 확인(=학습) 한 뒤 키워드별 뉴스의 요약 및 사용자 요청에 답변 해주세요 \n"
+                " - 최종 답변은 마크다운을 사용하여 가동성있게 구성해주세요. 첫 단락에는 검색된 기사에 링크로 접근 할 수 있도록 제목과 본문을 정리하여 넣어주시고, 두 번째 단락부터는 사용자 질의에 대한 당신의 답변을 생성하시면 됩니다. \n"
             ),
         )
 
@@ -53,7 +54,9 @@ class NaverNewsAgent(BaseAgent):
 
         # 3.1 먼저 입력된 keywords를 순회하여 Naver 뉴스를 조회
         total_articles = []
-        final_prompt = self.role_prompt
+        final_prompt = ''
+
+        
 
         if keywords:
             for idx, keyword in enumerate(keywords, start=1):
@@ -68,12 +71,13 @@ class NaverNewsAgent(BaseAgent):
                     for i_dx, article in enumerate(fetch_articles, start=1):
                         final_prompt += f"\n  - 제목{i_dx}: {article['title']}"
                         final_prompt += f"\n  - 링크{i_dx}: {article['link']}"
+        else : 
+            print('키워드가 없습니다. 종료')
+            return '키워드가 없습니다. 종료', chat_id            
 
-
-             
 
         # 3.2 키워드 검색 결과가 포함된 프롬프트로 llm query 질의 
-        llm_reply = self._llm_reply(model, message, chat_history, final_prompt)
+        llm_reply = self._llm_reply(model, final_prompt, chat_history, self.role_prompt)
         
         
         return total_articles, llm_reply, chat_id

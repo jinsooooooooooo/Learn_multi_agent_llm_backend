@@ -3,13 +3,11 @@ import requests
 import urllib.parse
 
 from backend.core.env_loader import load_dotenv
-
-# .env 파일 로드
-load_dotenv()
+from backend.core.config import settings
 
 # 네이버 API 인증 정보
-CLIENT_ID = os.getenv("NAVER_CLIENT_ID") # "jFgOLYH8gUFQ2_0DhekQ"
-CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET") # "Y1xqeZZfF4"
+CLIENT_ID = settings.NAVER_CLIENT_ID # os.getenv("NAVER_CLIENT_ID") # "jFgOLYH8gUFQ2_0DhekQ"
+CLIENT_SECRET = settings.NAVER_CLIENT_SECRET # os.getenv("NAVER_CLIENT_SECRET") # "Y1xqeZZfF4"
 
 
 
