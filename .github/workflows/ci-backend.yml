@@ -49,4 +49,3 @@ jobs:
           push: true
           # tags: 이미지에 부여할 태그. deployment.yaml에 명시된 경로와 정확히 일치해야 합니다.
           tags: 49.50.132.167/llm-project/backend:latest
-
