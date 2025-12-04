@@ -25,7 +25,7 @@ jobs:
           sudo mkdir -p /etc/docker
           # insecure-registries 설정을 담은 daemon.json 파일을 생성합니다.
           # 이 설정은 Docker에게 '49.50.132.167' 주소는 HTTP로 통신해도 안전하다고 알려줍니다.
-          echo '{"insecure-registries":["49.50.132.167"}' | sudo tee /etc/docker/daemon.json
+          echo '{"insecure-registries":["49.50.132.167"]}' | sudo tee /etc/docker/daemon.json
           # 변경된 설정을 적용하기 위해 Docker 데몬을 재시작합니다.
           sudo service docker restart
       #----------------------------------------------------------------------
