@@ -5,7 +5,7 @@ metadata:
   name: backend-ingress
   namespace: llm-app-backend
   # annotations: Ingress Controller의 세부 동작을 설정하는 '특별 지시사항'입니다.
-annotations:
+  annotations:
     # kubernetes.io/ingress.class: "nginx"
     #   -> "이 Ingress 규칙은 'nginx' Ingress Controller가 담당해주세요." 라는 의미입니다.
     #      NKE의 기본 컨트롤러가 nginx이므로 명시해주는 것이 좋습니다.
