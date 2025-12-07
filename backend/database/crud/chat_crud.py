@@ -5,7 +5,7 @@ import uuid
 
 # 우리가 6단계에서 만든 모델 클래스들을 import 합니다.
 from backend.database.models.chat_model import Chats, Messages
-from backend.database.models.agent_model import LlmModelf
+from backend.database.models.agent_model import LlmModel
 
 # ----------------------------------------------- 
 # ------- Chat Session 대하 생성 (첫 대화) ---------- 
