@@ -1,0 +1,28 @@
+fastapi
+uvicorn
+python-dotenv
+redis
+requests
+langchain
+langchain-core
+langchain-community
+langchain_openai
+openai
+# chromadb
+google-genai
+pytest-mock
+pytest
+# Postgresql DB 연결
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+pgvector
+# ncp object read
+boto3
+sentence-transformers
+google-generativeai
+langchain-text-splitters
+# (미사용) unstructured 
+# (미사용) pypdf 
+# (미사용) python-docx
+PyMuPDF

@@ -1,5 +1,4 @@
-from typing import Optional
-from sqlalchemy import func, text
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import uuid
 
