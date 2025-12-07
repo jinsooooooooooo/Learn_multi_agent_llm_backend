@@ -14,7 +14,7 @@ metadata:
     # "$2"는 path에 있는 정규식의 두 번째 캡처 그룹을 의미합니다.
     # 즉, "/api(/|$)(.*)" 경로로 들어온 요청을 "/api/$2"로 전달하라는 의미입니다.
     # 예: /api/health -> /api/health (그대로 유지)
-    nginx.ingress.kubernetes.io/rewrite-target: /api/$2
+    # nginx.ingress.kubernetes.io/rewrite-target: /api/$2
 spec:
   # rules: 이곳에 라우팅 규칙들을 정의합니다.
   rules:
@@ -27,9 +27,7 @@ spec:
           - path: /api
             # pathType: 경로를 어떤 방식으로 매칭할지 정합니다.
             # Prefix: '/api'로 시작하는 모든 경로 (e.g., /api, /api/, /api/chat)와 매칭됩니다.
-            # pathType: Prefix
-            # pathType을 'ImplementationSpecific'으로 변경하여 정규식을 사용함을 알립니다.
-            pathType: ImplementationSpecific
+            pathType: Prefix
             # backend: 이 경로로 들어온 요청을 어디로 보낼지 정의합니다.
             backend:
               # service: 전달할 대상 Service의 정보입니다.
