@@ -19,15 +19,15 @@ jobs:
 
       # [수정된 부분] Harbor 로그인 전에 이 단계를 추가합니다!
       #----------------------------------------------------------------------
-      - name: Configure Docker for Insecure Registry
+      - name: Create buildkit config
         run: |
-          # Docker 데몬 설정 파일이 들어갈 디렉토리를 생성합니다.
-          sudo mkdir -p /etc/docker
-          # insecure-registries 설정을 담은 daemon.json 파일을 생성합니다.
-          # 이 설정은 Docker에게 '49.50.132.167' 주소는 HTTP로 통신해도 안전하다고 알려줍니다.
-          echo '{"insecure-registries":["49.50.132.167"]}' | sudo tee /etc/docker/daemon.json
-          # 변경된 설정을 적용하기 위해 Docker 데몬을 재시작합니다.
-          sudo service docker restart
+          mkdir -p ~/.docker/cli-plugins/
+          echo '{"insecure-registries" : ["49.50.132.167"]}' | tee ~/.docker/daemon.json
+          # buildx가 사용하는 buildkit 데몬을 위한 설정 파일을 별도로 생성합니다.
+          # 이 파일이 buildx에게 insecure registry 정보를 직접 알려줍니다.
+          mkdir -p ./.buildkit
+          echo '[registry."49.50.132.167"]' | tee ./.buildkit/buildkitd.toml
+          echo '  insecure = true' | tee -a ./.buildkit/buildkitd.toml
       #----------------------------------------------------------------------
 
 
@@ -35,6 +35,9 @@ jobs:
       #   - 더 빠르고 다양한 형식의 이미지를 빌드할 수 있는 Docker의 고급 빌드 엔진을 설정합니다.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # 위에서 만든 buildx 전용 설정 파일을 사용하도록 지정합니다.
+          config: ./.buildkit/buildkitd.toml
 
       # 3단계: Harbor에 로그인
       #   - Docker 이미지를 푸시하기 위해 Harbor 레지스트리에 로그인합니다.
@@ -63,3 +66,5 @@ jobs:
           push: true
           # tags: 이미지에 부여할 태그. deployment.yaml에 명시된 경로와 정확히 일치해야 합니다.
           tags: 49.50.132.167/llm-project/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
