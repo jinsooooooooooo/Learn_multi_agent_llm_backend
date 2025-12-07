@@ -13,7 +13,7 @@ google-generativeai
 pytest-mock
 pytest
 langchain-text-splitters
-langchain_openai
+langchain-openai
 langchain_classic
 langchain_community
 boto3
