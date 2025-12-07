@@ -21,10 +21,12 @@ jobs:
       #----------------------------------------------------------------------
       - name: Create buildkit config
         run: |
-          mkdir -p ~/.docker/cli-plugins/
-          echo '{"insecure-registries" : ["49.50.132.167"]}' | tee ~/.docker/daemon.json
-          # buildx가 사용하는 buildkit 데몬을 위한 설정 파일을 별도로 생성합니다.
-          # 이 파일이 buildx에게 insecure registry 정보를 직접 알려줍니다.
+          # 1. 'docker/login-action'을 위한 설정 (시스템 Docker 데몬용)
+          sudo mkdir -p /etc/docker
+          echo '{"insecure-registries":["49.50.132.167"]}' | sudo tee /etc/docker/daemon.json
+          sudo service docker restart
+          
+          # 2. 'docker/build-push-action'을 위한 설정 (Buildx 엔진용)
           mkdir -p ./.buildkit
           echo '[registry."49.50.132.167"]' | tee ./.buildkit/buildkitd.toml
           echo '  insecure = true' | tee -a ./.buildkit/buildkitd.toml
