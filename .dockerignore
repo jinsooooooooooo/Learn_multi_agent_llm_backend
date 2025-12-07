@@ -1,0 +1,18 @@
+# Python/IDE virtualenvs and caches
+.venv
+env
+venv
+__pycache__
+*.pyc
+*.pyo
+
+# git
+.git
+.gitignore
+.github
+
+# local data
+*.sqlite3
+*.db
+.idea
+.vscode

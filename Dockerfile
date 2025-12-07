@@ -45,10 +45,6 @@ WORKDIR /app
 COPY ./backend ./backend
 # COPY ./pyproject.toml ./pyproject.toml
 
-# 4. 소스코드 복사
-COPY ./backend ./backend
-# COPY ./pyproject.toml ./pyproject.toml
-
 # 5. 통신 포트 노출
 EXPOSE 8000
 
