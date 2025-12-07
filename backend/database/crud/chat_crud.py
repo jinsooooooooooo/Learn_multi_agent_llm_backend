@@ -5,7 +5,7 @@ import uuid
 
 # 우리가 6단계에서 만든 모델 클래스들을 import 합니다.
 from backend.database.models.chat_model import Chats, Messages
-from backend.database.models.agent_model import LlmModel
+from backend.database.models.agent_model import LlmModelf
 
 # ----------------------------------------------- 
 # ------- Chat Session 대하 생성 (첫 대화) ---------- 
@@ -132,7 +132,7 @@ def get_last_sequence(db: Session, chat_id: uuid.UUID) -> int :
 
 # ----------------------------------------------------------
 # ------------------- llm 모델 목록 조회  ---------------------
-def get_active_models(db: Session) -> lst[str]:
+def get_active_models(db: Session) -> list[str]:
     """
     is_active가 True인 모든 LLM 모델의 ID 목록을 조회합니다.
     - Args:
