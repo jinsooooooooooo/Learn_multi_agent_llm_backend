@@ -67,3 +67,9 @@ jobs:
           context: .
           push: true
           tags: 49.50.132.167/llm-project/backend:latest
+          
+          # [핵심 추가 부분] Docker 레이어 캐시 활성화
+          #   - 이 두 줄이 GitHub Actions에게 빌드 캐시를 저장하고 재사용하라고 알려줍니다.
+          #   - 소스 코드만 변경된 경우, 의존성 설치 같은 무거운 작업을 건너뛰어 빌드 시간을 분 단위로 단축시킵니다.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
