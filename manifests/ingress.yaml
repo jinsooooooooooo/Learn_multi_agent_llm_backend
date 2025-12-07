@@ -14,7 +14,8 @@ spec:
   # rules: 이곳에 라우팅 규칙들을 정의합니다.
   rules:
     # http: HTTP 트래픽에 대한 규칙입니다.
-    - http:
+    - host: "jinsoo-llm.com"
+      http:
         # paths: 경로 목록입니다.
         paths:
           # - path: 외부에서 접근할 경로입니다.
