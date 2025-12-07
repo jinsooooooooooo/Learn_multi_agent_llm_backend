@@ -53,15 +53,14 @@ jobs:
       #  run: |
       #    docker push 49.50.132.167/llm-project/backend:latest
 
+      # --- 개선된 방법: Docker Buildx Action 사용 ---
+      # 4단계: Buildx 설정 (호스트 도커 드라이버 사용
       - name: Set up buildx (use host docker driver)
         uses: docker/setup-buildx-action@v3
         with:
           driver: docker
 
-      - name: Verify buildx driver
-        run: |
-          docker buildx ls
-
+      # 5단계: Buildx를 사용하여 이미지 빌드 및 푸시
       - name: Build and push with buildx (uses host daemon -> respects insecure-registries)
         uses: docker/build-push-action@v4
         with:

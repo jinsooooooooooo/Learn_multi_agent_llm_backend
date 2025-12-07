@@ -15,9 +15,15 @@ spec:
       labels:
         app: backend
     spec:
+      # Pod가 비공개 레지스트리에서 이미지를 가져올 때 사용할 '출입증(Secret)'을 지정합니다.
+      imagePullSecrets:
+        # 'name:' 에는 위 6-1 단계에서 지정한 "사용자 정의 이름"('harbor-secret')을 정확하게 적어줍니다.
+        - name: harbor-secret
+
       containers:
         - name: backend-container
-          image: http://49.50.132.167/llm-project/backend:latest
+          # 이제 이 이미지를 다운로드할 때, 쿠버네티스는 'harbor-secret'을 사용하여 Harbor에 로그인합니다.
+          image: 49.50.132.167/llm-project/backend:latest
           ports:
             - containerPort: 8000
           
