@@ -27,9 +27,9 @@ jobs:
           sudo service docker restart
           
           # 2. 'docker/build-push-action'을 위한 설정 (Buildx 엔진용)
-          mkdir -p ./.buildkit
-          echo '[registry."49.50.132.167"]' | tee ./.buildkit/buildkitd.toml
-          echo '  insecure = true' | tee -a ./.buildkit/buildkitd.toml
+          # mkdir -p ./.buildkit
+          # echo '[registry."49.50.132.167"]' | tee ./.buildkit/buildkitd.toml
+          # echo '  insecure = true' | tee -a ./.buildkit/buildkitd.toml
       #----------------------------------------------------------------------
 
 
@@ -38,8 +38,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          # 위에서 만든 buildx 전용 설정 파일을 사용하도록 지정합니다.
-          buildkitd-config: ./.buildkit/buildkitd.toml
+          # 'buildkitd-config-inline'을 사용하여 설정을 파일이 아닌 텍스트로 직접 전달합니다.
+          # 이것이 가장 확실하고 우선순위가 높은 설정 방식입니다.
+          buildkitd-config-inline: |
+            [registry."49.50.132.167"]
+              insecure = true
 
       # 3단계: Harbor에 로그인
       #   - Docker 이미지를 푸시하기 위해 Harbor 레지스트리에 로그인합니다.
