@@ -4,7 +4,7 @@ ignore = ["D100"] # D100 규칙 무시: 모듈에 docstring이 업성도 경고�
 select = [
 	"E", # pycodestype - 코드스타일 규칙 (들여쓰기, 공백 등)
 	"F", # pyflakes - 논리적오류 검출 (미사용 import, 정의되지 않은 변수 등)
-	"D", # pydocsytle - doctstring 스타일 검사
+	# "D", # pydocsytle - doctstring 스타일 검사
 	"I", # isort - import 문 정렬 및 구성
 	"B", # bugbear - 잠재적 버그 및 설계 문제 탐지
 	"N", # pep8-naming - 변수/함수/클래스 명명 규칙 검사
