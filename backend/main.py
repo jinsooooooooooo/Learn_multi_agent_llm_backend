@@ -1,28 +1,25 @@
 # main.py
 import logging
 import time
-from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse # CORSMiddleware 임포트
+from fastapi.responses import JSONResponse  # CORSMiddleware 임포트
 
-from backend.database.db_manager import engine
 from backend.core.config import settings
-
-
-from backend.routes.health_check import router as health_router
+from backend.database.db_manager import engine
 from backend.routes.chat_routes import router as chat_router
-from backend.routes.meeting_routes import router as meeting_router
-from backend.routes.naver_news_routes import router as naver_news_router
-from backend.routes.news_routes import router as news_router
+from backend.routes.health_check import router as health_router
 from backend.routes.langchain_chat_routes import router as langchain_router
 from backend.routes.langchain_chatstream_routes import router as langchain_stream_router
-from backend.routes.stream_sample_routes import router as stream_sample_router
+from backend.routes.meeting_routes import router as meeting_router
 from backend.routes.models_routes import router as models_router
+from backend.routes.naver_news_routes import router as naver_news_router
+from backend.routes.news_routes import router as news_router
 from backend.routes.rag_routes import router as rag_router
+from backend.routes.stream_sample_routes import router as stream_sample_router
 from backend.routes.stream_test_routes import router as stream_test_router
-
-
 
 # 로거 설정 (파일 상단에 추가)
 logging.basicConfig(level=logging.INFO, force=True) 
@@ -152,3 +149,13 @@ async def global_exception_handler(request: Request, exc: Exception):
             }
         },
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app,
+                host="0.0.0.0",
+                port=8000,
+                log_level="debug"
+                )

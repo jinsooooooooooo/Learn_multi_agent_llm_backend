@@ -15,7 +15,10 @@
             // "console": "integratedTerminal"
             "console": "internalConsole",
             "justMyCode": true,
-            "envFile": "${workspaceFolder}/.env.local"
+            "envFile": "${workspaceFolder}/.env.local",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
