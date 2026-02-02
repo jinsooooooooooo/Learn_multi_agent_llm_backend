@@ -19,7 +19,7 @@ __pycache__/
 .DS_Store
 
 # vscode 설정 (폴더임을 명확히)
-.vscode/
+# .vscode/
 
 # sqlite db
 *.db
