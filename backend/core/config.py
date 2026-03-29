@@ -20,11 +20,11 @@ class Settings(BaseSettings):
 
     # OpenAI 설정
     OPENAI_API_KEY: str
-    DEFAULT_LLM_MODEL: str = "gpt-4o-mini"
+    DEFAULT_LLM_MODEL: str = "gpt-5-nano"
 
     # Google Geminai 설정
     GEMINI_API_KEY: str
-    GEMINI_DEFAULT_MODEL: str="gemini-2.0-flash-lite"
+    GEMINI_DEFAULT_MODEL: str="gemini-2.0-flash-lite-preview-0924"
 
     # FastAPI settings
     APP_NAME:str 

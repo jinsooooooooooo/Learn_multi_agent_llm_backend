@@ -1,0 +1,4 @@
+apiVersion: v2
+name: llm-multi-agent-backend
+version: 0.1.0
+appVersion: "0.1.0"

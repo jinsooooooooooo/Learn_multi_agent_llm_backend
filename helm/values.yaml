@@ -1,0 +1,29 @@
+image:
+  # repository: ghcr.io/<GITHUB_OWNER>/api-fastapi
+  # tag: "dev"
+  repository: ghcr.io/leodev901/llm-multi-agent-backend
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  port: 80
+  targetPort: 8000
+
+env:
+  APP_NAME: "jinsoo.ai"
+  APP_ENV: "prd"
+  DATABASE_URL: "replace-database-url"
+  OPENAI_API_KEY: "replace-openai-api-key"
+  DEFAULT_LLM_MODEL: "gpt-5-nano"
+  GEMINI_API_KEY: "replace-gemini-api-key"
+  GEMINI_DEFAULT_MODEL: "gemini-2.0-flash-lite-preview-0924"
+  REDIS_HOST: "redis-master"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  NAVER_CLIENT_ID: "replace-naver-client-id"
+  NAVER_CLIENT_SECRET: "replace-naver-client-secret"
+  NCP_ACCESS_KEY: "replace-ncp-access-key"
+  NCP_SECRET_KEY: "replace-ncp-secret-key"
+  NCP_REGION: "kr-standard"
+  NCP_OBJECT_STORAGE_ENDPOINT: "https://kr.object.ncloudstorage.com"
+  NCP_BUCKET_NAME: "rag-project-bucket-jinsoo"
